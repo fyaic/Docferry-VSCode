@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible DocFerry for VS Code defect without private data.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include tokens, private links, card details, customer identifiers, or source documents.
+  - type: input
+    id: extension-version
+    attributes:
+      label: Extension version
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: VS Code and operating system
+      placeholder: VS Code 1.96.4, macOS 15, local workspace
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction
+      description: List the smallest safe steps and the expected versus actual result.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Redacted DocFerry output
+      render: text
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Private-data check
+      options:
+        - label: I removed credentials, private links, identifiers, and workspace content.
+          required: true

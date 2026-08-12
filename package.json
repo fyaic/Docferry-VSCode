@@ -1,0 +1,297 @@
+{
+  "name": "docferry",
+  "displayName": "DocFerry",
+  "description": "Save links, create detailed notes, and share Markdown files or folders from VS Code.",
+  "version": "0.2.0",
+  "publisher": "bondie",
+  "author": {
+    "name": "Bondie",
+    "email": "support@bondie.io",
+    "url": "https://bondie.io"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "pricing": "Free",
+  "preview": true,
+  "icon": "resources/docferry-256.png",
+  "homepage": "https://docferry.bondie.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fyaic/Docferry-VSCode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fyaic/Docferry-VSCode/issues"
+  },
+  "qna": false,
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "docferry",
+    "markdown",
+    "share",
+    "import",
+    "notes",
+    "knowledge",
+    "audio",
+    "video"
+  ],
+  "galleryBanner": {
+    "color": "#F7F7F3",
+    "theme": "light"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "DocFerry reads selected workspace files and starts its bundled helper only after the workspace is trusted."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Sharing and importing require a local filesystem-backed workspace."
+    }
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onView:docferry.workspace",
+    "onCommand:docferry.signIn",
+    "onCommand:docferry.signOut",
+    "onCommand:docferry.showMembership",
+    "onCommand:docferry.saveLink",
+    "onCommand:docferry.shareCurrentFile",
+    "onCommand:docferry.shareFolder",
+    "onCommand:docferry.stopShare",
+    "onCommand:docferry.stopFolderShare",
+    "onCommand:docferry.copyShareLink",
+    "onCommand:docferry.updateShare",
+    "onCommand:docferry.updateFolderShare",
+    "onCommand:docferry.deleteShareRecord",
+    "onCommand:docferry.deleteFolderShareRecord",
+    "onCommand:docferry.checkDetailedNote",
+    "onCommand:docferry.cancelDetailedNote"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "docferry.saveLink",
+        "title": "DocFerry: Save Link to Workspace",
+        "icon": "$(link)"
+      },
+      {
+        "command": "docferry.shareCurrentFile",
+        "title": "DocFerry: Share Markdown",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "docferry.shareFolder",
+        "title": "DocFerry: Share Folder",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "docferry.showMembership",
+        "title": "DocFerry: Show Plan and Usage",
+        "icon": "$(account)"
+      },
+      {
+        "command": "docferry.signIn",
+        "title": "DocFerry: Sign In",
+        "icon": "$(sign-in)"
+      },
+      {
+        "command": "docferry.signOut",
+        "title": "DocFerry: Sign Out",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "docferry.openDashboard",
+        "title": "DocFerry: Open Dashboard",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "docferry.refresh",
+        "title": "DocFerry: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "docferry.stopShare",
+        "title": "DocFerry: Stop Share",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "docferry.stopFolderShare",
+        "title": "DocFerry: Stop Folder Share",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "docferry.copyShareLink",
+        "title": "DocFerry: Copy Share Link",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "docferry.updateShare",
+        "title": "DocFerry: Update Shared Markdown",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "docferry.updateFolderShare",
+        "title": "DocFerry: Update Shared Folder",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "docferry.deleteShareRecord",
+        "title": "DocFerry: Delete Stopped Share History",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "docferry.deleteFolderShareRecord",
+        "title": "DocFerry: Delete Stopped Folder History",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "docferry.checkDetailedNote",
+        "title": "DocFerry: Check Detailed Note",
+        "icon": "$(history)"
+      },
+      {
+        "command": "docferry.cancelDetailedNote",
+        "title": "DocFerry: Cancel Detailed Note",
+        "icon": "$(circle-slash)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "docferry",
+          "title": "DocFerry",
+          "icon": "resources/docferry.svg"
+        }
+      ]
+    },
+    "views": {
+      "docferry": [
+        {
+          "id": "docferry.workspace",
+          "name": "Workspace"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "docferry.refresh",
+          "when": "view == docferry.workspace",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "docferry.shareCurrentFile",
+          "when": "resourceExtname == .md && isWorkspaceTrusted",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "docferry.shareCurrentFile",
+          "when": "resourceExtname == .md && isWorkspaceTrusted",
+          "group": "docferry@1"
+        },
+        {
+          "command": "docferry.shareFolder",
+          "when": "explorerResourceIsFolder && isWorkspaceTrusted",
+          "group": "docferry@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "docferry.stopShare",
+          "when": "view == docferry.workspace && viewItem == docferry.noteShare.active",
+          "group": "inline"
+        },
+        {
+          "command": "docferry.stopFolderShare",
+          "when": "view == docferry.workspace && viewItem == docferry.folderShare.active",
+          "group": "inline"
+        },
+        {
+          "command": "docferry.copyShareLink",
+          "when": "view == docferry.workspace && (viewItem == docferry.noteShare.active || viewItem == docferry.folderShare.active)",
+          "group": "docferry@1"
+        },
+        {
+          "command": "docferry.updateShare",
+          "when": "view == docferry.workspace && viewItem == docferry.noteShare.active",
+          "group": "docferry@2"
+        },
+        {
+          "command": "docferry.updateFolderShare",
+          "when": "view == docferry.workspace && viewItem == docferry.folderShare.active",
+          "group": "docferry@2"
+        },
+        {
+          "command": "docferry.deleteShareRecord",
+          "when": "view == docferry.workspace && viewItem == docferry.noteShare.deletable",
+          "group": "docferry@3"
+        },
+        {
+          "command": "docferry.deleteFolderShareRecord",
+          "when": "view == docferry.workspace && viewItem == docferry.folderShare.deletable",
+          "group": "docferry@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DocFerry",
+      "properties": {
+        "docferry.cliPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional path to an external DocFerry CLI. Leave empty to use the helper bundled with this extension."
+        },
+        "docferry.importFolder": {
+          "type": "string",
+          "default": "DocFerry Imports",
+          "scope": "resource",
+          "description": "Visible workspace folder where imported notes are saved."
+        },
+        "docferry.commandTimeoutSeconds": {
+          "type": "number",
+          "default": 900,
+          "minimum": 30,
+          "maximum": 1800,
+          "scope": "machine",
+          "description": "Maximum time to wait for sign-in or Advanced Import."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "compile": "tsc",
+    "bundle": "node esbuild.mjs",
+    "test:unit": "npm run compile && node --test out/test/*.test.js",
+    "test:extension": "npm run compile && node scripts/run_extension_tests.mjs",
+    "test": "npm run test:unit",
+    "build": "npm run check && npm run test:unit && npm run bundle",
+    "vscode:prepublish": "npm run bundle",
+    "sync:agent-kit": "node scripts/run_python.mjs scripts/sync_agent_kit.py",
+    "verify:source": "node scripts/run_python.mjs scripts/verify_source.py",
+    "build:helper": "node scripts/run_python.mjs scripts/build_helper.py",
+    "package:vsix": "npm run build && npm run sync:agent-kit && npm run build:helper && node scripts/package_vsix.mjs",
+    "verify:vsix": "node scripts/run_python.mjs scripts/verify_vsix.py",
+    "package": "npm run verify:source && npm run package:vsix && npm run verify:vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.96.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.4.5"
+  }
+}

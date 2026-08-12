@@ -1,0 +1,22 @@
+DocFerry for VS Code License
+Copyright (c) 2026 Bondie. All rights reserved.
+
+Permission is granted to download, install, and use unmodified copies of this
+extension for personal or internal business use with the DocFerry service.
+Bondie may distribute the extension through the Visual Studio Marketplace,
+GitHub Releases, and its own product channels.
+
+Except where applicable law requires otherwise, this license does not grant
+permission to modify, sublicense, sell, rent, reverse engineer, or redistribute
+the extension or its bundled helper outside Bondie's authorized channels.
+
+Use of hosted DocFerry features is also subject to:
+
+- Terms: https://docferry.bondie.io/terms
+- Privacy: https://docferry.bondie.io/privacy
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, AND NON-INFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED BY LAW, BONDIE
+WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
+EXEMPLARY DAMAGES ARISING FROM USE OF THE SOFTWARE.

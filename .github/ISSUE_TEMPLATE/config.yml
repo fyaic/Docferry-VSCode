@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Account, billing, privacy, or security help
+    url: mailto:support@bondie.io
+    about: Contact Bondie privately instead of opening a public issue.
