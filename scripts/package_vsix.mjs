@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 
 const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const targets = {
@@ -16,9 +18,11 @@ if (!target) {
   throw new Error(`Unsupported VS Code packaging target: ${key}`);
 }
 const output = `dist/docferry-vscode-${manifest.version}-${target}.vsix`;
+const require = createRequire(import.meta.url);
+const vsce = join(dirname(require.resolve("@vscode/vsce/package.json")), "vsce");
 const result = spawnSync(
-  process.platform === "win32" ? "npx.cmd" : "npx",
-  ["vsce", "package", "--target", target, "--no-dependencies", "--out", output],
+  process.execPath,
+  [vsce, "package", "--target", target, "--no-dependencies", "--out", output],
   { stdio: "inherit" }
 );
 if (result.status !== 0) {
