@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const MIN_AGENT_KIT_VERSION = "0.4.2";
+export const MIN_AGENT_KIT_VERSION = "0.4.3";
 export const VS_CODE_LOGIN_ARGS = ["login", "--device-code", "--client", "vscode", "--no-browser"] as const;
 
 export type DashboardSection = "home" | "membership" | "plans" | "shares" | "support" | "account";

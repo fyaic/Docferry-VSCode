@@ -20,7 +20,7 @@ from http.cookiejar import CookieJar
 from pathlib import Path
 from pathlib import PurePosixPath
 from threading import Event, Thread
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 from urllib.request import HTTPCookieProcessor, ProxyHandler, Request, build_opener
 
@@ -34,7 +34,9 @@ from .conversation import (
 DEFAULT_SERVER_URL = "https://docferry.bondie.io"
 OFFICIAL_SANDBOX_SERVER_URL = "https://sandbox-docferry.bondie.io"
 PERSISTED_SERVER_URLS = frozenset({DEFAULT_SERVER_URL, OFFICIAL_SANDBOX_SERVER_URL})
-DOCFERRY_CLI_VERSION = "0.4.2"
+DOCFERRY_CLI_VERSION = "0.4.3"
+DEVICE_LOGIN_MAX_TRANSIENT_FAILURES = 5
+DEVICE_LOGIN_MAX_RETRY_SECONDS = 15
 MANDATORY_ADVANCED_IMPORT_PROVIDERS = frozenset({"bilibili", "tiktok", "douyin"})
 CONFIG_ENV = "DOCFERRY_CONFIG"
 TOKEN_ENV_VARS = ("DOCFERRY_SESSION_TOKEN", "DOCFERRY_TOKEN")
@@ -1362,8 +1364,16 @@ def complete_login_from_device_code(
     if not browser_opened and not args.no_browser:
         print("The browser did not report opening. Copy the URL above into a browser.", file=sys.stderr)
     deadline = time.monotonic() + min(max(1, args.timeout), max(1, expires_in))
+    transient_failures = 0
     while time.monotonic() < deadline:
-        response = client.post("/v0/auth/device/token", body={"device_code": device_code})
+        try:
+            response = client.post("/v0/auth/device/token", body={"device_code": device_code})
+        except URLError:
+            transient_failures += 1
+            if transient_failures > DEVICE_LOGIN_MAX_TRANSIENT_FAILURES:
+                raise CliError("Device login could not reach DocFerry after several retries.") from None
+            sleep_device_login_retry(interval, transient_failures, deadline)
+            continue
         if 200 <= response.status_code < 300:
             complete_login_from_exchange_body(
                 config,
@@ -1373,6 +1383,13 @@ def complete_login_from_device_code(
                 source="device_code",
             )
             return
+        if response.status_code in {502, 503, 504}:
+            transient_failures += 1
+            if transient_failures > DEVICE_LOGIN_MAX_TRANSIENT_FAILURES:
+                raise CliError("Device login was temporarily unavailable after several retries.")
+            sleep_device_login_retry(interval, transient_failures, deadline)
+            continue
+        transient_failures = 0
         code = response_error_code(response)
         if code == "authorization_pending":
             time.sleep(min(interval, max(0.1, deadline - time.monotonic())))
@@ -1387,6 +1404,11 @@ def complete_login_from_device_code(
             raise CliError("Device login code expired. Run `docferry login` again.")
         raise CliError(f"Device login failed: {response.status_code} {response.text[:500]}")
     raise CliError("Device login timed out before browser approval completed.")
+
+
+def sleep_device_login_retry(interval: int, failures: int, deadline: float) -> None:
+    delay = min(interval * (2 ** (failures - 1)), DEVICE_LOGIN_MAX_RETRY_SECONDS)
+    time.sleep(min(delay, max(0.1, deadline - time.monotonic())))
 
 
 def complete_login_from_exchange_body(

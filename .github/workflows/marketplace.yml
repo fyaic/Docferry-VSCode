@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Checksummed GitHub prerelease to verify and publish
         required: true
-        default: v0.2.1
+        default: v0.2.2
         type: string
       operation:
         description: Resolve the Entra profile, verify access and packages, or publish

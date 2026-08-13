@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.2 - 2026-08-13
+
+### Fixed
+
+- Made system-browser Device Code login tolerate bounded gateway and network
+  interruptions without discarding an approval already in progress.
+
+### Changed
+
+- Updated the bundled and minimum Agent Kit version to `0.4.3`.
+
 ## 0.2.1 - 2026-08-13
 
 ### Fixed

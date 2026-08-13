@@ -2,7 +2,7 @@
   "name": "docferry",
   "displayName": "DocFerry",
   "description": "Save links, create detailed notes, and share Markdown files or folders from VS Code.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "bondie",
   "author": {
     "name": "Bondie",

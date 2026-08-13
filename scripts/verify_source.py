@@ -32,8 +32,8 @@ def source_files() -> list[Path]:
 
 def verify_runtime() -> None:
     provenance = json.loads((ROOT / "runtime" / "PROVENANCE.json").read_text(encoding="utf-8"))
-    if provenance.get("version") != "0.4.2":
-        raise SystemExit("Bundled Agent Kit provenance must remain at 0.4.2.")
+    if provenance.get("version") != "0.4.3":
+        raise SystemExit("Bundled Agent Kit provenance must remain at 0.4.3.")
     runtime = ROOT / "runtime" / "src" / "docferry_agent_kit"
     for name, expected in provenance.get("files", {}).items():
         actual = hashlib.sha256((runtime / name).read_bytes()).hexdigest()
@@ -67,7 +67,7 @@ def main() -> int:
 
     verify_runtime()
     verify_workflows()
-    print(json.dumps({"ok": True, "source_files": len(source_files()), "agent_kit": "0.4.2"}))
+    print(json.dumps({"ok": True, "source_files": len(source_files()), "agent_kit": "0.4.3"}))
     return 0
 
 

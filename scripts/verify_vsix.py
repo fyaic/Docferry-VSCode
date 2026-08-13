@@ -92,7 +92,7 @@ def main() -> int:
                 text=True,
                 timeout=90,
             ).stdout.strip()
-            if output != "docferry 0.4.2":
+            if output != "docferry 0.4.3":
                 raise SystemExit(f"Unexpected bundled helper version: {output}")
             health = subprocess.run(
                 [str(binary), "health"],
@@ -112,7 +112,7 @@ def main() -> int:
                 "ok": True,
                 "vsix": VSIX.name,
                 "sha256": digest,
-                "helper": "0.4.2",
+                "helper": "0.4.3",
                 "https_health": True,
             }
         )

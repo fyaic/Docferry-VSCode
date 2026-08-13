@@ -117,9 +117,9 @@ test("workspace matching resolves aliases and chooses the most specific root", (
 });
 
 test("Agent Kit version contract requires the current Marketplace runtime", () => {
-  assert.equal(isSupportedAgentKitVersion("docferry 0.4.2\n"), true);
+  assert.equal(isSupportedAgentKitVersion("docferry 0.4.3\n"), true);
   assert.equal(isSupportedAgentKitVersion("docferry 0.5.0\n"), true);
-  assert.equal(isSupportedAgentKitVersion("docferry 0.4.1\n"), false);
+  assert.equal(isSupportedAgentKitVersion("docferry 0.4.2\n"), false);
   assert.equal(isSupportedAgentKitVersion("unexpected output\n"), false);
 });
 
