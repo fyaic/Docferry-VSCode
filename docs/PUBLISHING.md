@@ -6,9 +6,14 @@
    company-controlled Microsoft account.
 2. Create publisher ID `bondie` and display name `Bondie`. The ID cannot be
    changed later, so verify spelling and ownership before submission.
-3. Add a public support URL and `bondie.io` domain information.
-4. Accept the current Visual Studio Marketplace Publisher Agreement.
-5. Create the `bondie.docferry` extension by uploading all four `0.2.0` Preview
+3. Fill the company profile from [PUBLISHER_PROFILE.md](PUBLISHER_PROFILE.md),
+   including the checked 128 x 128 Bondie mark.
+4. Save the publisher, then verify ownership of `bondie.io` using the exact DNS
+   record shown by Marketplace.
+5. Add a second company-controlled owner so publisher recovery does not depend
+   on one Microsoft account.
+6. Accept the current Visual Studio Marketplace Publisher Agreement.
+7. Create the `bondie.docferry` extension by uploading all four `0.2.0` Preview
    VSIX files from the same checksummed GitHub prerelease.
 
 The first submission should be manual so the publisher identity, listing copy,

@@ -13,6 +13,7 @@ src/**
 runtime/**
 tsconfig.json
 package-lock.json
+resources/bondie-publisher-128.png
 DEVELOPMENT.md
 **/*.ts
 **/*.map
