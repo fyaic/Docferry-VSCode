@@ -275,6 +275,7 @@
     "compile": "tsc",
     "bundle": "node esbuild.mjs",
     "test:unit": "npm run compile && node --test out/test/contracts.test.js",
+    "test:marketplace": "python3 scripts/test_verify_marketplace_release.py",
     "test:extension": "npm run compile && node scripts/run_extension_tests.mjs",
     "test": "npm run test:unit",
     "build": "npm run check && npm run test:unit && npm run bundle",
