@@ -63,8 +63,9 @@ checksummed GitHub release for every target.
 
 Publisher DNS-token ownership is accepted, but the Marketplace API still
 returns `isDomainVerified=false` after the publisher display-name correction.
-Complete the final **Verify** action on the Publisher Details page before the
-stable-channel release. This does not block installation of Preview `0.2.0`.
+The final domain verification request has since been submitted and is awaiting
+Marketplace-team processing. See the `0.2.2` store-install evidence for the
+current state. This does not block installation of the Preview extension.
 
 The protected workflow is ready for a future Microsoft Entra application and
 GitHub OIDC configuration. `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` remain
