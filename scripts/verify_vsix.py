@@ -90,12 +90,33 @@ def main() -> int:
                 check=True,
                 capture_output=True,
                 text=True,
+                timeout=90,
             ).stdout.strip()
             if output != "docferry 0.4.2":
                 raise SystemExit(f"Unexpected bundled helper version: {output}")
+            health = subprocess.run(
+                [str(binary), "health"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=90,
+            ).stdout.strip()
+            health_body = json.loads(health)
+            if health_body.get("ok") is not True or health_body.get("service") != "docferry-share":
+                raise SystemExit(f"Bundled helper HTTPS health check failed: {health_body}")
 
     digest = hashlib.sha256(VSIX.read_bytes()).hexdigest()
-    print(json.dumps({"ok": True, "vsix": VSIX.name, "sha256": digest, "helper": "0.4.2"}))
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "vsix": VSIX.name,
+                "sha256": digest,
+                "helper": "0.4.2",
+                "https_health": True,
+            }
+        )
+    )
     return 0
 
 

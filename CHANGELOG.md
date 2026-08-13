@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 - 2026-08-13
+
+### Fixed
+
+- Bundled the Mozilla CA trust store and configured the frozen helper to use it
+  when the host has not supplied an explicit certificate path.
+- Added a real DocFerry HTTPS health request to every platform's VSIX release
+  verification so a package with a broken TLS trust chain cannot be published.
+
 ## 0.2.0 - 2026-08-12
 
 ### Added

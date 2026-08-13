@@ -14,6 +14,7 @@ BUILD_ROOT = EXTENSION_ROOT / ".build" / "helper"
 VENV_ROOT = EXTENSION_ROOT / ".build" / "pyinstaller-venv"
 PYINSTALLER_VERSION = "6.22.0"
 HOOKS_VERSION = "2026.6"
+CERTIFI_VERSION = "2026.7.22"
 
 
 def venv_python() -> Path:
@@ -26,10 +27,11 @@ def pyinstaller_python() -> Path:
         venv.EnvBuilder(with_pip=True, clear=True).create(VENV_ROOT)
     probe_script = (
         "from importlib.metadata import version; "
-        "print(version('pyinstaller'), version('pyinstaller-hooks-contrib'))"
+        "print(version('pyinstaller'), version('pyinstaller-hooks-contrib'), version('certifi'))"
     )
     probe = subprocess.run([str(python), "-c", probe_script], capture_output=True, text=True, check=False)
-    if probe.returncode != 0 or probe.stdout.strip() != f"{PYINSTALLER_VERSION} {HOOKS_VERSION}":
+    expected_versions = f"{PYINSTALLER_VERSION} {HOOKS_VERSION} {CERTIFI_VERSION}"
+    if probe.returncode != 0 or probe.stdout.strip() != expected_versions:
         subprocess.run(
             [
                 str(python),
@@ -39,6 +41,7 @@ def pyinstaller_python() -> Path:
                 "--upgrade",
                 f"pyinstaller=={PYINSTALLER_VERSION}",
                 f"pyinstaller-hooks-contrib=={HOOKS_VERSION}",
+                f"certifi=={CERTIFI_VERSION}",
             ],
             check=True,
         )
@@ -62,6 +65,8 @@ def main() -> int:
             "--onefile",
             "--name",
             Path(binary_name).stem,
+            "--collect-data",
+            "certifi",
             "--paths",
             str(runtime_source),
             "--distpath",

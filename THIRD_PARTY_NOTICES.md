@@ -9,6 +9,10 @@ GPL-2.0-or-later with a bootloader exception that permits distributing bundled
 applications under their own license. See
 https://pyinstaller.org/en/stable/license.html.
 
+The bundled helper includes the Mozilla CA certificate collection distributed
+by certifi under the Mozilla Public License 2.0. See
+https://github.com/certifi/python-certifi.
+
 Development and packaging dependencies are listed in `package-lock.json`. They
 are not loaded by the installed extension unless their code is present in the
 generated `dist/extension.js` bundle.
