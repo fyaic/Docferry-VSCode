@@ -16,10 +16,12 @@
 7. Create the `bondie.docferry` extension by publishing all four `0.2.0`
    Preview VSIX files from the same checksummed GitHub prerelease.
 
-The first submission must run through the protected `Visual Studio Marketplace`
-workflow. Select `verify` first, review its evidence, then select `publish`.
-This preserves the same manual approval boundary as a portal upload while
-ensuring all four packages come from the accepted GitHub release.
+Preview `0.2.0` was first published with a short-lived Microsoft Entra token
+after local package and identity verification. Future submissions must run
+through the protected `Visual Studio Marketplace` workflow. Select `verify`
+first, review its evidence, then select `publish`. This preserves the same
+manual approval boundary while ensuring all four packages come from the
+accepted GitHub release.
 
 ## Release artifacts
 
