@@ -13,15 +13,15 @@
 5. Add a second company-controlled owner so publisher recovery does not depend
    on one Microsoft account.
 6. Accept the current Visual Studio Marketplace Publisher Agreement.
-7. Create the `bondie.docferry` extension by publishing all four `0.2.0`
-   Preview VSIX files from the same checksummed GitHub prerelease.
+7. Create the `bondie.docferry` extension by publishing all four target-specific
+   Preview VSIX files from the same checksummed GitHub release.
 
-Preview `0.2.0` was first published with a short-lived Microsoft Entra token
-after local package and identity verification. Future submissions must run
-through the protected `Visual Studio Marketplace` workflow. Select `verify`
-first, review its evidence, then select `publish`. This preserves the same
-manual approval boundary while ensuring all four packages come from the
-accepted GitHub release.
+The current publisher Owner is a company-controlled personal Microsoft account,
+not an identity in a company Microsoft Entra tenant. Releases therefore use a
+guarded manual upload: GitHub Actions verifies the exact release assets first,
+then the signed-in Owner uploads those same files through the Marketplace
+publisher page. The repository stores no Marketplace PAT, Microsoft password,
+or application secret.
 
 ## Release artifacts
 
@@ -35,57 +35,47 @@ Release CI builds these targets on matching native runners:
 Do not rename one platform artifact to another target. Each VSIX contains a
 native helper and must pass `scripts/verify_vsix.py` on its build runner.
 
-## One-time Microsoft Entra setup
+## Current publishing identity boundary
 
-The publishing workflow uses GitHub OIDC and Microsoft Entra ID. It does not
-store a Marketplace PAT or an application secret.
+Do not configure arbitrary `AZURE_CLIENT_ID` or `AZURE_TENANT_ID` values for the
+current personal-account Owner. GitHub OIDC can publish only after Bondie has a
+dedicated Microsoft Entra identity whose Azure DevOps profile has explicitly
+been added to publisher `bondie` as a Contributor.
 
-1. In Microsoft Entra, create an application named
-   `bondie-docferry-marketplace-publisher` and record its Application (client)
-   ID and Directory (tenant) ID.
-2. Add a federated identity credential to the application with:
-   - Issuer: `https://token.actions.githubusercontent.com`
-   - Audience: `api://AzureADTokenExchange`
-   - Subject:
-     `repo:fyaic/Docferry-VSCode:environment:visual-studio-marketplace`
-3. Configure `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` as variables on the
-   repository's protected `visual-studio-marketplace` environment.
-4. Run **Visual Studio Marketplace** with operation `profile`. The workflow
-   requests the Azure DevOps profile using resource
-   `499b84ac-1321-427f-aa17-267ca6975798` and records the low-sensitivity
-   profile `id` in its summary and evidence artifact.
-5. On the Marketplace publisher **Members** tab, add that profile ID as a
-   **Contributor**, never as an Owner.
-6. Run **Visual Studio Marketplace** with operation `verify`. It must pass
-   package validation and `vsce verify-pat --azure-credential bondie` before a
-   publish run is approved.
-
-The environment requires an explicit reviewer. The `publish` operation is the
-only step that uploads packages to Marketplace.
+Until that identity exists, `.github/workflows/marketplace.yml` is deliberately
+a package gate only. It has `contents: read`, requests no GitHub OIDC token, and
+cannot upload or modify a Marketplace extension. This avoids a workflow that
+appears automated but always fails against the real publisher ownership model.
 
 ## Publishing a release
 
 1. Confirm the GitHub release contains exactly four target-specific VSIX files
    and `SHA256SUMS`.
-2. Run **Visual Studio Marketplace** with the release tag and operation
-   `verify`.
+2. Run **Visual Studio Marketplace Package Gate** with the release tag.
 3. Review the retained `verification.json` evidence.
-4. Run it again with operation `publish` and approve the protected environment.
-5. Check `bondie.docferry` in Marketplace for the version, Preview badge, Free
+4. Download the exact four VSIX assets from that release and verify them locally
+   with `shasum -a 256 -c SHA256SUMS`.
+5. Sign in to the Bondie publisher page with its company-controlled Owner and
+   upload each target-specific VSIX through **More actions > Update**. Do not
+   rebuild, rename, or substitute a package during this step.
+6. Check `bondie.docferry` in Marketplace for the version, Preview badge, Free
    pricing, and all four target platforms.
+7. Install `bondie.docferry` from Marketplace into a clean VS Code extensions
+   directory and verify the installed version, target platform, helper version,
+   checksum, activation, account status, and primary share/import commands.
 
 The workflow downloads, checksums, and statically validates the release assets;
-it never rebuilds a second set of packages at publication time. Re-running a
-successful publish is safe because duplicate target versions are skipped.
+it never rebuilds a second set of packages at publication time.
 
 ## Publishing security
 
-Use a protected `visual-studio-marketplace` deployment environment and
-Microsoft Entra ID workload identity. Add the managed identity to the Bondie
-publisher as **Contributor**, then publish with `vsce publish --azure-credential`.
-Do not create a long-lived global Azure DevOps PAT; Microsoft retires global
-PATs on December 1, 2026.
+Do not create a long-lived global Azure DevOps PAT for convenience. The current
+manual Owner upload is protected by Microsoft sign-in and Marketplace's upload
+checks, while the public release checksum proves exactly which packages were
+accepted. Record only low-sensitivity version, target, digest, and test evidence.
 
-GitHub release automation contains no publisher credential and cannot submit to
-Marketplace by itself. Marketplace publication remains a separate, manually
-approved workflow.
+If Bondie later provisions a dedicated Entra publishing identity, add it to the
+publisher as **Contributor**, keep Owner recovery separate, protect the GitHub
+deployment environment with a reviewer, and introduce OIDC publishing in a
+separately reviewed change. GitHub release automation currently contains no
+publisher credential and cannot submit to Marketplace by itself.

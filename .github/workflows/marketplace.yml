@@ -1,26 +1,16 @@
-name: Visual Studio Marketplace
+name: Visual Studio Marketplace Package Gate
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Checksummed GitHub prerelease to verify and publish
+        description: Checksummed GitHub release to verify before manual Marketplace upload
         required: true
         default: v0.2.3
         type: string
-      operation:
-        description: Resolve the Entra profile, verify access and packages, or publish
-        required: true
-        default: profile
-        type: choice
-        options:
-          - profile
-          - verify
-          - publish
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: visual-studio-marketplace
@@ -28,9 +18,8 @@ concurrency:
 
 jobs:
   marketplace:
-    name: ${{ inputs.operation }} ${{ inputs.release_tag }}
+    name: Verify ${{ inputs.release_tag }}
     runs-on: ubuntu-24.04
-    environment: visual-studio-marketplace
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
@@ -39,17 +28,11 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Check publishing identity configuration
-        env:
-          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      - name: Check release source
         run: |
           test "$GITHUB_REF" = "refs/heads/main" || { echo "Marketplace operations must run from main." >&2; exit 1; }
-          test -n "$AZURE_CLIENT_ID" || { echo "AZURE_CLIENT_ID is not configured in the visual-studio-marketplace environment." >&2; exit 1; }
-          test -n "$AZURE_TENANT_ID" || { echo "AZURE_TENANT_ID is not configured in the visual-studio-marketplace environment." >&2; exit 1; }
 
       - name: Download accepted release packages
-        if: inputs.operation != 'profile'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -65,56 +48,22 @@ jobs:
             > marketplace-assets/github-release.json
 
       - name: Verify release identity, platforms, and checksums
-        if: inputs.operation != 'profile'
         run: python3 scripts/verify_marketplace_release.py marketplace-assets --tag "${{ inputs.release_tag }}" | tee marketplace-assets/verification.json
 
-      - name: Sign in with GitHub OIDC
-        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v3.0.1
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
-      - name: Resolve Azure DevOps Marketplace profile
+      - name: Summarize manual upload boundary
         run: |
-          mkdir -p marketplace-assets
-          az rest \
-            --url https://app.vssps.visualstudio.com/_apis/profile/profiles/me \
-            --resource 499b84ac-1321-427f-aa17-267ca6975798 \
-            --query '{id:id,displayName:displayName}' \
-            --output json \
-            > marketplace-assets/marketplace-profile.json
-          profile_id=$(jq -r '.id // empty' marketplace-assets/marketplace-profile.json)
-          test -n "$profile_id" || { echo "Marketplace profile ID was not returned." >&2; exit 1; }
-          echo "### Marketplace publishing identity" >> "$GITHUB_STEP_SUMMARY"
-          echo "Add profile ID \`$profile_id\` to publisher \`bondie\` as a Contributor." >> "$GITHUB_STEP_SUMMARY"
-
-      - run: npm ci --ignore-scripts
-        if: inputs.operation != 'profile'
-
-      - name: Verify Marketplace Contributor access
-        if: inputs.operation != 'profile'
-        run: npx vsce verify-pat --azure-credential bondie
-
-      - name: Publish accepted platform packages
-        if: inputs.operation == 'publish'
-        run: |
-          mapfile -t packages < <(find marketplace-assets -maxdepth 1 -name '*.vsix' -type f | sort)
-          npx vsce publish --azure-credential --skip-duplicate --packagePath "${packages[@]}"
-
-      - name: Record Marketplace state
-        if: inputs.operation == 'publish'
-        run: npx vsce show bondie.docferry --json | tee marketplace-assets/marketplace-extension.json
+          echo "### Marketplace package gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "Release \`${{ inputs.release_tag }}\` passed source, target, manifest, and checksum verification." >> "$GITHUB_STEP_SUMMARY"
+          echo "Upload these exact assets through the authenticated Bondie publisher page, following \`docs/PUBLISHING.md\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "This workflow intentionally has no Marketplace credential or upload permission." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Preserve low-sensitivity publication evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: marketplace-${{ inputs.operation }}-${{ inputs.release_tag }}
+          name: marketplace-package-gate-${{ inputs.release_tag }}
           path: |
             marketplace-assets/github-release.json
             marketplace-assets/verification.json
-            marketplace-assets/marketplace-profile.json
-            marketplace-assets/marketplace-extension.json
           if-no-files-found: ignore
           retention-days: 30
