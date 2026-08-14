@@ -9,6 +9,8 @@ import {
   dashboardCommandArgs,
   DashboardLinkResult,
   DashboardSection,
+  DeviceLoginStartResult,
+  folderShareConfirmation,
   isCanonicalDocFerryShareUrl,
   isPathInside,
   isShareActionable,
@@ -19,7 +21,8 @@ import {
   operationErrorMessage,
   resolveWorkspaceOutput,
   SaveResult,
-  VS_CODE_LOGIN_ARGS,
+  VS_CODE_LOGIN_COMPLETE_ARGS,
+  VS_CODE_LOGIN_START_ARGS,
   validateImportFolder,
   workspaceRootForPath,
   workspaceRelativePath
@@ -32,12 +35,18 @@ export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("DocFerry", { log: true });
   const cli = new DocFerryCli(output, context.extensionPath);
   const detailedNotes = new DetailedNoteManager(context, cli);
-  const tree = new DocFerryTreeProvider(cli);
+  const tree = new DocFerryTreeProvider(cli, detailedNotes);
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 40);
   status.name = "DocFerry";
-  status.text = "$(cloud-upload) DocFerry";
-  status.tooltip = "Save a link to this workspace";
-  status.command = "docferry.saveLink";
+  const updateStatus = () => {
+    const detailedNote = detailedNotes.indicator();
+    status.text = detailedNote
+      ? `${detailedNote.ready ? "$(check)" : "$(sync~spin)"} Detailed note`
+      : "$(cloud-upload) DocFerry";
+    status.tooltip = detailedNote?.description || "Save a link to this workspace";
+    status.command = detailedNote ? "docferry.checkDetailedNote" : "docferry.saveLink";
+  };
+  updateStatus();
   if (vscode.workspace.workspaceFolders?.length) {
     status.show();
   }
@@ -45,7 +54,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     output,
     status,
+    tree,
     detailedNotes,
+    detailedNotes.onDidChangeState(updateStatus),
     vscode.window.registerTreeDataProvider("docferry.workspace", tree),
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       if (vscode.workspace.workspaceFolders?.length) {
@@ -107,24 +118,48 @@ async function signIn(
   if (!workspacePath) {
     return;
   }
-  let loginOutput = "";
-  let browserOpened = false;
-  const result = await runWithProgress(
-    "Finish signing in in your browser",
-    (token) => cli.run(workspacePath, VS_CODE_LOGIN_ARGS, {
-      label: "Sign in",
+  const started = await runWithProgress(
+    "Preparing secure sign-in",
+    (token) => cli.runJson<DeviceLoginStartResult>(workspacePath, VS_CODE_LOGIN_START_ARGS, {
+      label: "Start sign in",
       token,
-      onStdout: (chunk) => {
-        loginOutput += chunk;
-        if (browserOpened) {
-          return;
-        }
-        const candidate = loginOutput.match(/https:\/\/[^\s]+/)?.[0];
-        if (isTrustedDeviceLoginUrl(candidate)) {
-          browserOpened = true;
-          void openExternal(candidate);
-        }
-      }
+      timeoutSeconds: 90
+    })
+  );
+  const loginUrl = started?.verification_uri_complete;
+  if (!started || !isTrustedDeviceLoginUrl(loginUrl)) {
+    if (started) {
+      void vscode.window.showErrorMessage("DocFerry returned an invalid sign-in link.");
+    }
+    return;
+  }
+  let browserOpened = await openExternal(loginUrl, false);
+  if (!browserOpened) {
+    const action = await vscode.window.showWarningMessage(
+      `Open your system browser to connect DocFerry${started.user_code ? ` with code ${started.user_code}` : ""}.`,
+      "Open sign-in page",
+      "Copy link",
+      "Cancel"
+    );
+    if (action === "Open sign-in page") {
+      browserOpened = await openExternal(loginUrl, false);
+    } else if (action === "Copy link") {
+      await vscode.env.clipboard.writeText(loginUrl);
+      void vscode.window.showInformationMessage("DocFerry sign-in link copied. Open it in your browser, then return to VS Code.");
+      browserOpened = true;
+    } else {
+      return;
+    }
+    if (!browserOpened) {
+      await vscode.env.clipboard.writeText(loginUrl);
+      void vscode.window.showWarningMessage("Your system browser did not open. The DocFerry sign-in link was copied instead.");
+    }
+  }
+  const result = await runWithProgress(
+    "Waiting for browser approval",
+    (token) => cli.run(workspacePath, VS_CODE_LOGIN_COMPLETE_ARGS, {
+      label: "Complete sign in",
+      token
     })
   );
   if (!result) {
@@ -243,7 +278,7 @@ async function shareMarkdown(
     })
   );
   if (result) {
-    tree.refresh();
+    tree.refreshAfterMutation();
     await showPublishedResult(result, "Markdown shared.");
   }
 }
@@ -264,7 +299,7 @@ async function shareFolder(
       canSelectFolders: true,
       canSelectMany: false,
       defaultUri: vscode.Uri.file(workspacePath),
-      openLabel: "Share this folder"
+      openLabel: "Choose folder"
     });
     uri = picked?.[0];
   }
@@ -277,10 +312,10 @@ async function shareFolder(
     return;
   }
   const relative = workspaceRelativePath(workspace.uri.fsPath, uri.fsPath);
-  const displayName = relative === "." ? workspace.name : path.basename(uri.fsPath);
+  const confirmation = folderShareConfirmation(workspace.name, relative);
   const approved = await vscode.window.showWarningMessage(
-    `Share Markdown files in “${displayName}”?`,
-    { modal: true, detail: "DocFerry will publish visible Markdown files in this folder and its subfolders." },
+    confirmation.message,
+    { modal: true, detail: confirmation.detail },
     "Share folder"
   );
   if (approved !== "Share folder") {
@@ -295,7 +330,7 @@ async function shareFolder(
     })
   );
   if (result) {
-    tree.refresh();
+    tree.refreshAfterMutation();
     await showPublishedResult(result, "Folder shared.");
   }
 }
@@ -454,7 +489,7 @@ async function stopShare(cli: DocFerryCli, tree: DocFerryTreeProvider, node: Not
     })
   );
   if (result) {
-    tree.refresh();
+    tree.refreshAfterMutation();
     void vscode.window.showInformationMessage("Share stopped.");
   }
 }
@@ -488,7 +523,7 @@ async function stopFolderShare(
     })
   );
   if (result) {
-    tree.refresh();
+    tree.refreshAfterMutation();
     void vscode.window.showInformationMessage("Folder share stopped.");
   }
 }
@@ -537,7 +572,7 @@ async function updateShare(
     })
   );
   if (result) {
-    tree.refresh();
+    tree.refreshAfterMutation();
     void vscode.window.showInformationMessage("Shared Markdown updated.");
   }
 }
@@ -584,7 +619,7 @@ async function updateFolderShare(
     })
   );
   if (result) {
-    tree.refresh();
+    tree.refreshAfterMutation();
     void vscode.window.showInformationMessage("Shared folder updated.");
   }
 }
@@ -635,7 +670,7 @@ async function deleteHistoryRecord(
     })
   );
   if (result) {
-    tree.refresh();
+    tree.refreshAfterMutation();
     void vscode.window.showInformationMessage("Stopped share removed from history.");
   }
 }
@@ -784,14 +819,17 @@ async function openSavedResult(workspacePath: string, result: SaveResult): Promi
   }
 }
 
-async function openExternal(value: string): Promise<void> {
+async function openExternal(value: string, showError = true): Promise<boolean> {
   try {
     const uri = vscode.Uri.parse(value, true);
     if (uri.scheme !== "https" || !uri.authority) {
       throw new Error("DocFerry only opens secure web links.");
     }
-    await vscode.env.openExternal(uri);
+    return await vscode.env.openExternal(uri);
   } catch (error) {
-    void vscode.window.showErrorMessage(errorMessage(error));
+    if (showError) {
+      void vscode.window.showErrorMessage(errorMessage(error));
+    }
+    return false;
   }
 }

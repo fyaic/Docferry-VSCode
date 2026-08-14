@@ -22,9 +22,10 @@ is built inside the private DocFerry monorepo. In the public release repository,
 it verifies and preserves the vendored runtime recorded in
 `runtime/PROVENANCE.json`.
 
-The generated VSIX is platform-specific because it contains a native helper.
-Never copy a helper between operating systems or CPU architectures. Release CI
-builds each supported target on its matching GitHub-hosted runner.
+The generated VSIX is platform-specific because it contains a native helper and
+its private runtime directory under `bin/helper/`. Never copy that directory
+between operating systems or CPU architectures. Release CI builds each supported
+target on its matching GitHub-hosted runner.
 
 ## Release discipline
 

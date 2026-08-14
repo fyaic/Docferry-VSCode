@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 
 import { DocFerryCli } from "./cli";
+import type { DetailedNoteManager } from "./imports";
 import {
   FolderShareListSummary,
   FolderShareSummary,
@@ -105,14 +106,41 @@ const GROUPS: GroupNode[] = [
   { kind: "group", group: "folders", label: "Shared folders", icon: "folder-library" }
 ];
 
-export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode> {
+export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
   private readonly changeEmitter = new vscode.EventEmitter<TreeNode | undefined>();
+  private readonly detailedNoteSubscription?: vscode.Disposable;
+  private readonly delayedRefreshes = new Set<NodeJS.Timeout>();
   readonly onDidChangeTreeData = this.changeEmitter.event;
 
-  constructor(private readonly cli: DocFerryCli) {}
+  constructor(
+    private readonly cli: DocFerryCli,
+    private readonly detailedNotes?: DetailedNoteManager
+  ) {
+    this.detailedNoteSubscription = detailedNotes?.onDidChangeState(() => this.refresh());
+  }
+
+  dispose(): void {
+    this.detailedNoteSubscription?.dispose();
+    this.changeEmitter.dispose();
+    for (const timer of this.delayedRefreshes) {
+      clearTimeout(timer);
+    }
+    this.delayedRefreshes.clear();
+  }
 
   refresh(): void {
     this.changeEmitter.fire(undefined);
+  }
+
+  refreshAfterMutation(): void {
+    this.refresh();
+    for (const delay of [1_200, 3_500]) {
+      const timer = setTimeout(() => {
+        this.delayedRefreshes.delete(timer);
+        this.refresh();
+      }, delay);
+      this.delayedRefreshes.add(timer);
+    }
   }
 
   getTreeItem(node: TreeNode): vscode.TreeItem {
@@ -154,7 +182,18 @@ export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   async getChildren(node?: TreeNode): Promise<TreeNode[]> {
     if (!node) {
-      return [...ACTIONS, ...GROUPS];
+      const actions = [...ACTIONS];
+      const detailedNote = this.detailedNotes?.indicator();
+      if (detailedNote) {
+        actions.splice(1, 0, {
+          kind: "action",
+          label: detailedNote.label,
+          description: detailedNote.description,
+          icon: detailedNote.icon,
+          command: "docferry.checkDetailedNote"
+        });
+      }
+      return [...actions, ...GROUPS];
     }
     if (node.kind !== "group") {
       return [];

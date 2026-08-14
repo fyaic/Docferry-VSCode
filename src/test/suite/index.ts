@@ -25,12 +25,11 @@ const EXPECTED_COMMANDS = [
 
 
 export async function run(): Promise<void> {
-  const expectedVersion = process.env.DOCFERRY_EXPECTED_EXTENSION_VERSION ?? "0.2.2";
   const extension = vscode.extensions.getExtension("bondie.docferry");
   assert.ok(extension, "DocFerry extension was not discovered by Extension Host");
   await extension.activate();
   assert.equal(extension.isActive, true);
-  assert.equal(extension.packageJSON.version, expectedVersion);
+  assert.equal(extension.packageJSON.version, "0.2.3");
   assert.equal(extension.packageJSON.pricing, "Free");
   assert.equal(extension.packageJSON.preview, true);
   assert.equal(extension.packageJSON.capabilities.untrustedWorkspaces.supported, false);

@@ -65,9 +65,16 @@ def main() -> int:
         if any(name.endswith((".map", ".ts", ".py")) for name in names if name.startswith("extension/")):
             raise SystemExit("VSIX contains source or source-map files.")
         binary_name = "docferry.exe" if os.name == "nt" else "docferry"
-        binary_member = f"extension/bin/{binary_name}"
+        binary_member = f"extension/bin/helper/{binary_name}"
         if binary_member not in names:
             raise SystemExit("VSIX does not contain the platform helper.")
+        helper_members = {
+            name
+            for name in names
+            if name.startswith("extension/bin/helper/") and not name.endswith("/")
+        }
+        if len(helper_members) < 2:
+            raise SystemExit("VSIX does not contain the helper runtime directory.")
         payload = b"\n".join(archive.read(name) for name in sorted(names) if not name.endswith("/"))
         for pattern in FORBIDDEN_PATTERNS:
             if pattern.search(payload):
@@ -92,7 +99,7 @@ def main() -> int:
                 text=True,
                 timeout=90,
             ).stdout.strip()
-            if output != "docferry 0.4.3":
+            if output != "docferry 0.4.4":
                 raise SystemExit(f"Unexpected bundled helper version: {output}")
             health = subprocess.run(
                 [str(binary), "health"],
@@ -106,17 +113,7 @@ def main() -> int:
                 raise SystemExit(f"Bundled helper HTTPS health check failed: {health_body}")
 
     digest = hashlib.sha256(VSIX.read_bytes()).hexdigest()
-    print(
-        json.dumps(
-            {
-                "ok": True,
-                "vsix": VSIX.name,
-                "sha256": digest,
-                "helper": "0.4.3",
-                "https_health": True,
-            }
-        )
-    )
+    print(json.dumps({"ok": True, "vsix": VSIX.name, "sha256": digest, "helper": "0.4.4", "https_health": True}))
     return 0
 
 

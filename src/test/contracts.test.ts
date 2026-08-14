@@ -9,7 +9,9 @@ import {
   buildCliArgs,
   classifyOperationError,
   dashboardCommandArgs,
+  detailedNoteIndicatorCopy,
   defaultCliCandidates,
+  folderShareConfirmation,
   isCanonicalDocFerryShareUrl,
   isPathInside,
   isShareActionable,
@@ -27,7 +29,8 @@ import {
   resolveWorkspaceOutput,
   shareTreeFailureMessage,
   shouldUseAdvancedImport,
-  VS_CODE_LOGIN_ARGS,
+  VS_CODE_LOGIN_COMPLETE_ARGS,
+  VS_CODE_LOGIN_START_ARGS,
   validateImportFolder,
   workspaceRootForPath,
   workspaceRelativePath
@@ -117,9 +120,9 @@ test("workspace matching resolves aliases and chooses the most specific root", (
 });
 
 test("Agent Kit version contract requires the current Marketplace runtime", () => {
-  assert.equal(isSupportedAgentKitVersion("docferry 0.4.3\n"), true);
+  assert.equal(isSupportedAgentKitVersion("docferry 0.4.4\n"), true);
   assert.equal(isSupportedAgentKitVersion("docferry 0.5.0\n"), true);
-  assert.equal(isSupportedAgentKitVersion("docferry 0.4.2\n"), false);
+  assert.equal(isSupportedAgentKitVersion("docferry 0.4.3\n"), false);
   assert.equal(isSupportedAgentKitVersion("unexpected output\n"), false);
 });
 
@@ -142,7 +145,20 @@ test("Dashboard commands use a short-lived DocFerry-only handoff", () => {
 });
 
 test("VS Code sign-in uses its product-owned system-browser Device Code flow", () => {
-  assert.deepEqual(VS_CODE_LOGIN_ARGS, ["login", "--device-code", "--client", "vscode", "--no-browser"]);
+  assert.deepEqual(VS_CODE_LOGIN_START_ARGS, [
+    "login",
+    "--device-code-start",
+    "--client",
+    "vscode",
+    "--no-browser"
+  ]);
+  assert.deepEqual(VS_CODE_LOGIN_COMPLETE_ARGS, [
+    "login",
+    "--device-code-complete",
+    "--client",
+    "vscode",
+    "--no-browser"
+  ]);
   assert.equal(
     isTrustedDeviceLoginUrl("https://docferry.bondie.io/activate?user_code=BOND-1234"),
     true
@@ -152,6 +168,17 @@ test("VS Code sign-in uses its product-owned system-browser Device Code flow", (
     isTrustedDeviceLoginUrl("https://docferry.bondie.io/activate?user_code=BOND-1234&next=bad"),
     false
   );
+});
+
+test("folder sharing makes whole-workspace scope explicit", () => {
+  assert.deepEqual(folderShareConfirmation("Project", "."), {
+    message: "Share the entire “Project” workspace?",
+    detail: "This publishes every visible Markdown file in the workspace and its subfolders. Hidden and non-Markdown files stay private."
+  });
+  assert.deepEqual(folderShareConfirmation("Project", "notes/research"), {
+    message: "Share Markdown files in “research”?",
+    detail: "Selected folder: notes/research. Visible Markdown files in this folder and its subfolders will be published."
+  });
 });
 
 test("import folder must stay visible and relative", () => {
@@ -224,6 +251,18 @@ test("background detailed-note status and preview stay bounded and user-readable
     "example.com"
   );
   assert.match(mediaNoteFailureMessage({ status: "cancelled" }), /Nothing was saved/);
+  assert.deepEqual(detailedNoteIndicatorCopy("fetching"), {
+    label: "Preparing detailed note",
+    description: "Reading the source",
+    icon: "loading~spin",
+    ready: false
+  });
+  assert.deepEqual(detailedNoteIndicatorCopy("extracted", "A useful talk"), {
+    label: "Detailed note ready: A useful talk",
+    description: "Review and save it",
+    icon: "check",
+    ready: true
+  });
 });
 
 test("share status and tree failures expose only valid actions and useful guidance", () => {

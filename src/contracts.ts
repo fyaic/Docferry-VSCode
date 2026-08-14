@@ -1,8 +1,71 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const MIN_AGENT_KIT_VERSION = "0.4.3";
-export const VS_CODE_LOGIN_ARGS = ["login", "--device-code", "--client", "vscode", "--no-browser"] as const;
+export const MIN_AGENT_KIT_VERSION = "0.4.4";
+export const VS_CODE_LOGIN_START_ARGS = [
+  "login",
+  "--device-code-start",
+  "--client",
+  "vscode",
+  "--no-browser"
+] as const;
+export const VS_CODE_LOGIN_COMPLETE_ARGS = [
+  "login",
+  "--device-code-complete",
+  "--client",
+  "vscode",
+  "--no-browser"
+] as const;
+
+export interface DeviceLoginStartResult {
+  verification_uri_complete?: string;
+  user_code?: string;
+  expires_at?: string;
+  interval?: number;
+}
+
+export interface DetailedNoteIndicatorCopy {
+  label: string;
+  description: string;
+  icon: string;
+  ready: boolean;
+}
+
+export function detailedNoteIndicatorCopy(
+  status: string | undefined,
+  title?: string
+): DetailedNoteIndicatorCopy {
+  if (mediaNoteStatusKind(status || "queued") === "ready") {
+    return {
+      label: title ? `Detailed note ready: ${title}` : "Detailed note ready",
+      description: "Review and save it",
+      icon: "check",
+      ready: true
+    };
+  }
+  return {
+    label: "Preparing detailed note",
+    description: status === "fetching" ? "Reading the source" : "Running in the background",
+    icon: "loading~spin",
+    ready: false
+  };
+}
+
+export function folderShareConfirmation(
+  workspaceName: string,
+  relativePath: string
+): { message: string; detail: string } {
+  if (relativePath === ".") {
+    return {
+      message: `Share the entire “${workspaceName}” workspace?`,
+      detail: "This publishes every visible Markdown file in the workspace and its subfolders. Hidden and non-Markdown files stay private."
+    };
+  }
+  return {
+    message: `Share Markdown files in “${path.basename(relativePath)}”?`,
+    detail: `Selected folder: ${relativePath}. Visible Markdown files in this folder and its subfolders will be published.`
+  };
+}
 
 export type DashboardSection = "home" | "membership" | "plans" | "shares" | "support" | "account";
 

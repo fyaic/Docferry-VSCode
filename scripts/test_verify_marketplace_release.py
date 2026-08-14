@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -83,6 +84,22 @@ class MarketplaceReleaseVerificationTests(unittest.TestCase):
             result = self.verify(directory)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Duplicate VSIX target", result.stderr)
+
+    def test_public_export_refuses_to_delete_public_only_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            destination = Path(temporary_directory) / "public"
+            destination.mkdir()
+            public_only = destination / "public-only.txt"
+            public_only.write_text("keep\n", encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "export_public_repo.py"), str(destination)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Public release files are missing", result.stderr)
+            self.assertEqual(public_only.read_text(encoding="utf-8"), "keep\n")
 
 
 if __name__ == "__main__":

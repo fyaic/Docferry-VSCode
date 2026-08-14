@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { DocFerryCli } from "./cli";
 import {
   canonicalPath,
+  detailedNoteIndicatorCopy,
   mediaNoteFailureMessage,
   mediaNotePreview,
   mediaNoteStatusKind,
@@ -22,12 +23,22 @@ interface PendingDetailedNote {
   workspacePath: string;
   outputFolder: string;
   createdAt: string;
+  status?: string;
+  title?: string;
 }
 
+export interface DetailedNoteIndicator {
+  label: string;
+  description: string;
+  icon: string;
+  ready: boolean;
+}
 
 export class DetailedNoteManager implements vscode.Disposable {
   private disposed = false;
   private monitoring = false;
+  private readonly stateEmitter = new vscode.EventEmitter<void>();
+  readonly onDidChangeState = this.stateEmitter.event;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -36,10 +47,19 @@ export class DetailedNoteManager implements vscode.Disposable {
 
   dispose(): void {
     this.disposed = true;
+    this.stateEmitter.dispose();
   }
 
   hasPending(): boolean {
     return this.pending() !== undefined;
+  }
+
+  indicator(): DetailedNoteIndicator | undefined {
+    const pending = this.pending();
+    if (!pending) {
+      return undefined;
+    }
+    return detailedNoteIndicatorCopy(pending.status, pending.title);
   }
 
   async guardAccountChange(): Promise<boolean> {
@@ -94,8 +114,10 @@ export class DetailedNoteManager implements vscode.Disposable {
       jobId: created.job_id,
       workspacePath,
       outputFolder,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      status: created.status || "queued"
     } satisfies PendingDetailedNote);
+    this.stateEmitter.fire();
     const action = await vscode.window.showInformationMessage(
       "DocFerry is preparing your detailed note in the background.",
       "Check status"
@@ -218,6 +240,7 @@ export class DetailedNoteManager implements vscode.Disposable {
     job: MediaNoteJobResult,
     announceProgress: boolean
   ): Promise<boolean> {
+    await this.updatePendingStatus(pending.jobId, job.status, mediaNotePreview(job).title);
     const kind = mediaNoteStatusKind(job.status);
     if (kind === "processing") {
       if (announceProgress) {
@@ -280,7 +303,26 @@ export class DetailedNoteManager implements vscode.Disposable {
   private async clear(jobId: string): Promise<void> {
     if (this.pending()?.jobId === jobId) {
       await this.context.globalState.update(PENDING_IMPORT_KEY, undefined);
+      this.stateEmitter.fire();
     }
+  }
+
+  private async updatePendingStatus(jobId: string, status: string | undefined, title: string): Promise<void> {
+    const pending = this.pending();
+    if (!pending || pending.jobId !== jobId) {
+      return;
+    }
+    const nextStatus = status || pending.status || "queued";
+    const nextTitle = title || pending.title;
+    if (pending.status === nextStatus && pending.title === nextTitle) {
+      return;
+    }
+    await this.context.globalState.update(PENDING_IMPORT_KEY, {
+      ...pending,
+      status: nextStatus,
+      title: nextTitle
+    } satisfies PendingDetailedNote);
+    this.stateEmitter.fire();
   }
 }
 

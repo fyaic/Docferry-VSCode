@@ -55,6 +55,9 @@ export class DocFerryCli {
   }
 
   private async ensureSupportedVersion(executable: string, workspacePath: string): Promise<void> {
+    if (executable === this.bundledExecutable()) {
+      return;
+    }
     const existing = this.versionChecks.get(executable);
     if (existing) {
       return await existing;
@@ -183,11 +186,16 @@ export class DocFerryCli {
       return configured;
     }
     const executable = process.platform === "win32" ? "docferry.exe" : "docferry";
-    const bundled = path.join(this.extensionPath, "bin", executable);
+    const bundled = this.bundledExecutable();
     if (fs.existsSync(bundled)) {
       return bundled;
     }
     return defaultCliCandidates(os.homedir(), process.platform).find((candidate) => fs.existsSync(candidate))
       ?? executable;
+  }
+
+  private bundledExecutable(): string {
+    const executable = process.platform === "win32" ? "docferry.exe" : "docferry";
+    return path.join(this.extensionPath, "bin", "helper", executable);
   }
 }

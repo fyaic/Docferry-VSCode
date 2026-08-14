@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.3 - 2026-08-14
+
+### Fixed
+
+- Open system-browser sign-in before the extension begins its approval wait,
+  with explicit open and copy-link recovery when the OS declines the request.
+- Avoid a redundant bundled-helper version launch on the first user action.
+- Package the helper as a self-contained runtime directory so macOS does not
+  repeat first-launch security work for every command.
+- Refresh share lists again after server projection settles.
+- Keep a background detailed note visible in the Activity Bar and status bar
+  until it is reviewed, saved, cancelled, or fails.
+- Make whole-workspace folder sharing unmistakable before confirmation.
+
+### Changed
+
+- Updated the bundled and minimum Agent Kit version to `0.4.4`.
+
 ## 0.2.2 - 2026-08-13
 
 ### Fixed

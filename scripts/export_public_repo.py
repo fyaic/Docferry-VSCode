@@ -16,10 +16,25 @@ EXCLUDED = {
     "node_modules",
     "out",
 }
+IGNORED_FILES = {".DS_Store"}
 
 
 def ignored(_directory: str, names: list[str]) -> set[str]:
-    return {name for name in names if name in EXCLUDED or name == "__pycache__"}
+    return {
+        name
+        for name in names
+        if name in EXCLUDED or name in IGNORED_FILES or name == "__pycache__"
+    }
+
+
+def managed_files(root: Path) -> set[Path]:
+    return {
+        path.relative_to(root)
+        for path in root.rglob("*")
+        if (path.is_file() or path.is_symlink())
+        and path.name not in IGNORED_FILES
+        and not any(part in EXCLUDED or part == "__pycache__" for part in path.relative_to(root).parts)
+    }
 
 
 def main() -> int:
@@ -30,6 +45,13 @@ def main() -> int:
     if destination == ROOT or ROOT in destination.parents:
         raise SystemExit("Destination must be outside the extension source directory.")
     destination.mkdir(parents=True, exist_ok=True)
+    public_only = sorted(managed_files(destination) - managed_files(ROOT))
+    if public_only:
+        rendered = "\n".join(f"- {path.as_posix()}" for path in public_only)
+        raise SystemExit(
+            "Public release files are missing from the canonical source. "
+            f"Sync or remove them before export:\n{rendered}"
+        )
     for item in destination.iterdir():
         if item.name != ".git":
             if item.is_dir():

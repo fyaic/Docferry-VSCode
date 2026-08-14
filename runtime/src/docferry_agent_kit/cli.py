@@ -15,7 +15,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.cookiejar import CookieJar
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -34,7 +34,7 @@ from .conversation import (
 DEFAULT_SERVER_URL = "https://docferry.bondie.io"
 OFFICIAL_SANDBOX_SERVER_URL = "https://sandbox-docferry.bondie.io"
 PERSISTED_SERVER_URLS = frozenset({DEFAULT_SERVER_URL, OFFICIAL_SANDBOX_SERVER_URL})
-DOCFERRY_CLI_VERSION = "0.4.3"
+DOCFERRY_CLI_VERSION = "0.4.4"
 DEVICE_LOGIN_MAX_TRANSIENT_FAILURES = 5
 DEVICE_LOGIN_MAX_RETRY_SECONDS = 15
 MANDATORY_ADVANCED_IMPORT_PROVIDERS = frozenset({"bilibili", "tiktok", "douyin"})
@@ -93,6 +93,11 @@ class CliConfig:
     session_expires_at: str | None = None
     client_instance_id: str | None = None
     pending_code_verifier: str | None = None
+    pending_device_code: str | None = None
+    pending_device_user_code: str | None = None
+    pending_device_verification_uri: str | None = None
+    pending_device_expires_at: str | None = None
+    pending_device_interval: str | None = None
 
     @classmethod
     def from_json(cls, value: object) -> "CliConfig":
@@ -104,6 +109,11 @@ class CliConfig:
             session_expires_at=string_or_none(value.get("session_expires_at")),
             client_instance_id=string_or_none(value.get("client_instance_id")),
             pending_code_verifier=string_or_none(value.get("pending_code_verifier")),
+            pending_device_code=string_or_none(value.get("pending_device_code")),
+            pending_device_user_code=string_or_none(value.get("pending_device_user_code")),
+            pending_device_verification_uri=string_or_none(value.get("pending_device_verification_uri")),
+            pending_device_expires_at=string_or_none(value.get("pending_device_expires_at")),
+            pending_device_interval=string_or_none(value.get("pending_device_interval")),
         )
 
     def to_json(self) -> dict[str, str]:
@@ -118,6 +128,16 @@ class CliConfig:
             body["client_instance_id"] = self.client_instance_id
         if self.pending_code_verifier:
             body["pending_code_verifier"] = self.pending_code_verifier
+        if self.pending_device_code:
+            body["pending_device_code"] = self.pending_device_code
+        if self.pending_device_user_code:
+            body["pending_device_user_code"] = self.pending_device_user_code
+        if self.pending_device_verification_uri:
+            body["pending_device_verification_uri"] = self.pending_device_verification_uri
+        if self.pending_device_expires_at:
+            body["pending_device_expires_at"] = self.pending_device_expires_at
+        if self.pending_device_interval:
+            body["pending_device_interval"] = self.pending_device_interval
         return body
 
 
@@ -265,6 +285,16 @@ def main() -> int:
     login = subparsers.add_parser("login")
     login_mode = login.add_mutually_exclusive_group()
     login_mode.add_argument("--device-code", action="store_true", help="Use Device Code login. This is the default.")
+    login_mode.add_argument(
+        "--device-code-start",
+        action="store_true",
+        help="Start Device Code login and return the browser URL without waiting.",
+    )
+    login_mode.add_argument(
+        "--device-code-complete",
+        action="store_true",
+        help="Complete the pending Device Code login after the browser has opened.",
+    )
     login_mode.add_argument("--loopback", action="store_true", help="Use localhost callback login with PKCE.")
     login_mode.add_argument(
         "--manual-callback",
@@ -1180,7 +1210,12 @@ def login_command(
     login_client = str(args.client or "cli")
     login_instance_type = "vscode_extension" if login_client == "vscode" else "cli"
     if login_client == "vscode" and not (
-        args.device_code or args.loopback or args.manual_callback or args.callback_url
+        args.device_code
+        or args.device_code_start
+        or args.device_code_complete
+        or args.loopback
+        or args.manual_callback
+        or args.callback_url
     ):
         raise CliError("VS Code login requires Device Code, loopback, or manual callback mode.")
 
@@ -1208,6 +1243,14 @@ def login_command(
             code_verifier=config.pending_code_verifier,
             expected_instance_type=login_instance_type,
         )
+        return
+
+    if args.device_code_start:
+        print_json(start_device_login(client, args, config, config_path, server_url))
+        return
+
+    if args.device_code_complete:
+        wait_for_device_login(client, args, config, config_path, server_url)
         return
 
     explicit_browser_mode = bool(args.device_code or args.loopback or args.manual_callback)
@@ -1305,6 +1348,7 @@ def complete_login_from_session_token(
         config.session_token = session_token
         config.session_expires_at = expires_at
         config.pending_code_verifier = None
+        clear_pending_device_login(config)
         save_config(config_path, config)
     print_json(
         {
@@ -1326,25 +1370,57 @@ def complete_login_from_device_code(
     config_path: Path,
     server_url: str,
 ) -> None:
+    device = start_device_login(client, args, config, config_path, server_url)
+    verification_uri_complete = str(device["verification_uri_complete"])
+    user_code = str(device["user_code"])
+    browser_opened = False
+    if not args.no_browser:
+        browser_opened = webbrowser.open(verification_uri_complete)
+    print("Open this URL to sign in:")
+    print(verification_uri_complete)
+    print()
+    print(f"One-time code: {user_code}")
+    print("Waiting for approval...")
+    if not browser_opened and not args.no_browser:
+        print("The browser did not report opening. Copy the URL above into a browser.", file=sys.stderr)
+    wait_for_device_login(client, args, config, config_path, server_url)
+
+
+def start_device_login(
+    client: Client,
+    args: argparse.Namespace,
+    config: CliConfig,
+    config_path: Path,
+    server_url: str,
+) -> dict[str, object]:
     login_client = str(getattr(args, "client", None) or "cli")
     instance_type = "vscode_extension" if login_client == "vscode" else "cli_device"
     client_instance_id = config.client_instance_id or f"dfcli_{secrets.token_urlsafe(18)}"
     config.client_instance_id = client_instance_id
     config.server_url = server_url
     config.pending_code_verifier = None
+    clear_pending_device_login(config)
     save_config(config_path, config)
-    device = require_ok(
-        client.post(
-            "/v0/auth/device/code",
-            body={
-                "client_instance_id": client_instance_id,
-                "plugin_version": DOCFERRY_CLI_VERSION,
-                "platform": f"{platform.system()} {platform.release()}",
-                "instance_type": instance_type,
-            },
-        ),
-        "device login start",
-    ).json()
+    request_body = {
+        "client_instance_id": client_instance_id,
+        "plugin_version": DOCFERRY_CLI_VERSION,
+        "platform": f"{platform.system()} {platform.release()}",
+        "instance_type": instance_type,
+    }
+    response: Response | None = None
+    for failure in range(DEVICE_LOGIN_MAX_TRANSIENT_FAILURES + 1):
+        try:
+            response = client.post("/v0/auth/device/code", body=request_body)
+        except URLError:
+            response = None
+        if response is not None and response.status_code not in {502, 503, 504}:
+            break
+        if failure >= DEVICE_LOGIN_MAX_TRANSIENT_FAILURES:
+            raise CliError("Device login could not start after several retries.")
+        time.sleep(min(2 ** failure, DEVICE_LOGIN_MAX_RETRY_SECONDS))
+    if response is None:
+        raise CliError("Device login could not reach DocFerry.")
+    device = require_ok(response, "device login start").json()
     device_code = string_or_none(device.get("device_code"))
     user_code = string_or_none(device.get("user_code"))
     verification_uri = string_or_none(device.get("verification_uri"))
@@ -1353,17 +1429,45 @@ def complete_login_from_device_code(
     interval = max(1, int(device.get("interval") or 5))
     if not device_code or not user_code or not verification_uri:
         raise CliError("Device login start did not return a complete authorization response.")
-    browser_opened = False
-    if not args.no_browser and verification_uri_complete:
-        browser_opened = webbrowser.open(verification_uri_complete)
-    print("Open this URL to sign in:")
-    print(verification_uri_complete or verification_uri)
-    print()
-    print(f"One-time code: {user_code}")
-    print("Waiting for approval...")
-    if not browser_opened and not args.no_browser:
-        print("The browser did not report opening. Copy the URL above into a browser.", file=sys.stderr)
-    deadline = time.monotonic() + min(max(1, args.timeout), max(1, expires_in))
+    verification_url = verification_uri_complete or verification_uri
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=max(1, expires_in))
+    config.pending_device_code = device_code
+    config.pending_device_user_code = user_code
+    config.pending_device_verification_uri = verification_url
+    config.pending_device_expires_at = expires_at.isoformat()
+    config.pending_device_interval = str(interval)
+    save_config(config_path, config)
+    return {
+        "verification_uri_complete": verification_url,
+        "user_code": user_code,
+        "expires_at": expires_at.isoformat(),
+        "interval": interval,
+    }
+
+
+def wait_for_device_login(
+    client: Client,
+    args: argparse.Namespace,
+    config: CliConfig,
+    config_path: Path,
+    server_url: str,
+) -> None:
+    device_code = config.pending_device_code
+    if not device_code or not config.pending_device_expires_at:
+        raise CliError("No pending DocFerry browser sign-in. Start sign-in again.")
+    try:
+        expires_at = datetime.fromisoformat(config.pending_device_expires_at)
+    except ValueError as exc:
+        clear_pending_device_login(config)
+        save_config(config_path, config)
+        raise CliError("Pending DocFerry sign-in is invalid. Start sign-in again.") from exc
+    remaining = (expires_at - datetime.now(timezone.utc)).total_seconds()
+    if remaining <= 0:
+        clear_pending_device_login(config)
+        save_config(config_path, config)
+        raise CliError("Device login code expired. Start sign-in again.")
+    interval = max(1, int(config.pending_device_interval or 5))
+    deadline = time.monotonic() + min(max(1, args.timeout), remaining)
     transient_failures = 0
     while time.monotonic() < deadline:
         try:
@@ -1399,11 +1503,23 @@ def complete_login_from_device_code(
             time.sleep(min(interval, max(0.1, deadline - time.monotonic())))
             continue
         if code == "access_denied":
+            clear_pending_device_login(config)
+            save_config(config_path, config)
             raise CliError("Device login was denied in the browser.")
         if code == "expired_device_code":
+            clear_pending_device_login(config)
+            save_config(config_path, config)
             raise CliError("Device login code expired. Run `docferry login` again.")
         raise CliError(f"Device login failed: {response.status_code} {response.text[:500]}")
     raise CliError("Device login timed out before browser approval completed.")
+
+
+def clear_pending_device_login(config: CliConfig) -> None:
+    config.pending_device_code = None
+    config.pending_device_user_code = None
+    config.pending_device_verification_uri = None
+    config.pending_device_expires_at = None
+    config.pending_device_interval = None
 
 
 def sleep_device_login_retry(interval: int, failures: int, deadline: float) -> None:
@@ -1426,6 +1542,7 @@ def complete_login_from_exchange_body(
     config.session_token = access_token
     config.session_expires_at = string_or_none(exchange.get("expires_at"))
     config.pending_code_verifier = None
+    clear_pending_device_login(config)
     save_config(config_path, config)
     print_json(
         {
@@ -1516,6 +1633,8 @@ def logout_command(
         remote_status = "ok" if 200 <= response.status_code < 300 else f"failed_{response.status_code}"
     config.session_token = None
     config.session_expires_at = None
+    config.pending_code_verifier = None
+    clear_pending_device_login(config)
     save_config(config_path, config)
     print_json({"authenticated": False, "remote_logout": remote_status, "config": str(config_path)})
 
@@ -1786,6 +1905,7 @@ def migrate_stale_persisted_server(
     config.session_token = None
     config.session_expires_at = None
     config.pending_code_verifier = None
+    clear_pending_device_login(config)
     save_config(config_path, config)
     return True
 
