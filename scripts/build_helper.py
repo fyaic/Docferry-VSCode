@@ -61,30 +61,30 @@ def main() -> int:
     legacy_binary = EXTENSION_ROOT / "bin" / binary_name
     if legacy_binary.is_file():
         legacy_binary.unlink()
-    subprocess.run(
-        [
-            str(pyinstaller_python()),
-            "-m",
-            "PyInstaller",
-            "--clean",
-            "--noconfirm",
-            "--onedir",
-            "--name",
-            Path(binary_name).stem,
-            "--collect-data",
-            "certifi",
-            "--paths",
-            str(runtime_source),
-            "--distpath",
-            str(BUILD_ROOT / "dist"),
-            "--workpath",
-            str(BUILD_ROOT / "work"),
-            "--specpath",
-            str(BUILD_ROOT / "spec"),
-            str(EXTENSION_ROOT / "runtime" / "helper_entry.py"),
-        ],
-        check=True,
-    )
+    command = [
+        str(pyinstaller_python()),
+        "-m",
+        "PyInstaller",
+        "--clean",
+        "--noconfirm",
+        "--onedir",
+        "--name",
+        Path(binary_name).stem,
+        "--collect-data",
+        "certifi",
+        "--paths",
+        str(runtime_source),
+        "--distpath",
+        str(BUILD_ROOT / "dist"),
+        "--workpath",
+        str(BUILD_ROOT / "work"),
+        "--specpath",
+        str(BUILD_ROOT / "spec"),
+    ]
+    if sys.platform.startswith("linux"):
+        command.append("--strip")
+    command.append(str(EXTENSION_ROOT / "runtime" / "helper_entry.py"))
+    subprocess.run(command, check=True)
     built_root = BUILD_ROOT / "dist" / Path(binary_name).stem
     if not built_root.is_dir():
         raise SystemExit(f"Bundled helper directory was not created: {built_root}")

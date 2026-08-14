@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.4 - 2026-08-14
+
+### Fixed
+
+- Strip unused symbols from the Linux bundled helper so Marketplace upload and
+  scanning stay below the extension's reliability budget without returning to
+  the slower single-file runtime.
+- Reject oversized VSIX artifacts during release verification instead of
+  discovering the problem in the Marketplace upload flow.
+
 ## 0.2.3 - 2026-08-14
 
 ### Fixed

@@ -16,6 +16,7 @@ from pathlib import Path, PurePosixPath
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
 VERSION = MANIFEST["version"]
+MAX_MARKETPLACE_VSIX_BYTES = 20 * 1024 * 1024
 machine = os.environ.get("PROCESSOR_ARCHITECTURE", "x64") if os.name == "nt" else os.uname().machine
 architecture = {
     "aarch64": "arm64",
@@ -57,6 +58,12 @@ def safe_extract(archive: zipfile.ZipFile, target: Path) -> None:
 def main() -> int:
     if not VSIX.is_file():
         raise SystemExit(f"VSIX is missing: {VSIX}")
+    vsix_size = VSIX.stat().st_size
+    if vsix_size > MAX_MARKETPLACE_VSIX_BYTES:
+        raise SystemExit(
+            f"VSIX exceeds the {MAX_MARKETPLACE_VSIX_BYTES}-byte Marketplace reliability budget: "
+            f"{vsix_size} bytes"
+        )
     with zipfile.ZipFile(VSIX) as archive:
         names = set(archive.namelist())
         missing = sorted(REQUIRED - names)
@@ -113,7 +120,18 @@ def main() -> int:
                 raise SystemExit(f"Bundled helper HTTPS health check failed: {health_body}")
 
     digest = hashlib.sha256(VSIX.read_bytes()).hexdigest()
-    print(json.dumps({"ok": True, "vsix": VSIX.name, "sha256": digest, "helper": "0.4.4", "https_health": True}))
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "vsix": VSIX.name,
+                "sha256": digest,
+                "size_bytes": vsix_size,
+                "helper": "0.4.4",
+                "https_health": True,
+            }
+        )
+    )
     return 0
 
 
