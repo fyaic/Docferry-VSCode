@@ -3,8 +3,8 @@
 Bring useful links into your project and share Markdown without leaving VS Code.
 DocFerry works with ordinary folders and repositories; Obsidian is optional.
 
-> **Preview:** `0.2.3` is the current Marketplace release candidate.
-> Install and core features are free. Folder sharing and detailed notes from
+> **Preview:** Install the current build from the VS Code Marketplace.
+> Core features are free. Folder sharing and detailed notes from
 > supported web, audio, and video sources require an optional DocFerry Pro
 > subscription purchased outside the Marketplace.
 

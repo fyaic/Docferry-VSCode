@@ -4,7 +4,7 @@ DocFerry for VS Code consumes the same product session, membership policy, and
 share/import APIs as the current DocFerry mainline. It does not maintain a
 separate entitlement model.
 
-| Product workflow | VS Code 0.2.3 | Boundary |
+| Product workflow | Current VS Code Preview | Boundary |
 | --- | --- | --- |
 | Bondie login | Complete | System-browser Device Code flow |
 | Product Dashboard | Complete | Short-lived DocFerry-only handoff |

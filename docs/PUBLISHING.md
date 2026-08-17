@@ -32,6 +32,11 @@ Release CI builds these targets on matching native runners:
 - `linux-x64`
 - `win32-x64`
 
+These are four platform variants of one `bondie.docferry` extension version,
+not four separate extensions. Marketplace records their target metadata and
+offers the matching package to each supported VS Code host. Upload every target
+for the version; a user installs DocFerry once.
+
 Do not rename one platform artifact to another target. Each VSIX contains a
 native helper and must pass `scripts/verify_vsix.py` on its build runner.
 

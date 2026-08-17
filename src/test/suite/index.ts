@@ -29,7 +29,7 @@ export async function run(): Promise<void> {
   assert.ok(extension, "DocFerry extension was not discovered by Extension Host");
   await extension.activate();
   assert.equal(extension.isActive, true);
-  assert.equal(extension.packageJSON.version, "0.2.4");
+  assert.equal(extension.packageJSON.version, "0.2.5");
   assert.equal(extension.packageJSON.pricing, "Free");
   assert.equal(extension.packageJSON.preview, true);
   assert.equal(extension.packageJSON.capabilities.untrustedWorkspaces.supported, false);
