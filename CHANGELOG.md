@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.5 - 2026-08-17
+
+### Fixed
+
+- Removed stale `0.2.3` release-candidate copy from the Marketplace README and
+  feature contract so the installed extension no longer advertises an older
+  package than the one a user is running.
+- Updated the manual Marketplace package gate and bug-report template to the
+  current release version.
+- Clarified that the four target-specific VSIX files are platform variants of
+  one extension and Marketplace selects the matching package automatically.
+
+### Distribution
+
+- Kept the public `fyaic/Docferry-VSCode` repository as the sole review and
+  release source. The bundled runtime remains DocFerry Agent Kit `0.4.4`.
+
 ## 0.2.4 - 2026-08-14
 
 ### Fixed
