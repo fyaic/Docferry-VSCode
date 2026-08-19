@@ -61,11 +61,14 @@ checksummed GitHub release for every target.
 
 ## Follow-up
 
-Publisher DNS-token ownership is accepted, but the Marketplace API still
-returns `isDomainVerified=false` after the publisher display-name correction.
-The final domain verification request has since been submitted and is awaiting
-Marketplace-team processing. See the `0.2.2` store-install evidence for the
-current state. This does not block installation of the Preview extension.
+Publisher DNS-token ownership is accepted, but the Marketplace API returns
+`isDomainVerified=false`. Marketplace Support resolved the earlier uncertainty
+on `2026-08-18`: the request is deferred until both the domain and a published
+extension have a six-month track record. The operational reapplication date is
+`2027-02-13` or later. See
+`marketplace-publisher-verification-deferral-2026-08-19.md` for the current
+boundary. This does not block publication or installation of the Preview
+extension.
 
 The protected workflow is ready for a future Microsoft Entra application and
 GitHub OIDC configuration. `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` remain

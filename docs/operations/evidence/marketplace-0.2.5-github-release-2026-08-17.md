@@ -38,6 +38,11 @@ target variants for `bondie.docferry@0.2.4` and reported
 `publisher.isDomainVerified=false`. Therefore this evidence does not claim that
 `0.2.5` is installed from Marketplace or that the publisher badge is visible.
 
+Marketplace Support subsequently confirmed on `2026-08-18` that the badge is
+ineligible until both `bondie.io` and a published extension have at least six
+months of track record. Reapplication is scheduled for `2027-02-13` or later;
+the badge does not gate release uploads.
+
 The remaining publication step is an authenticated Owner upload of these exact
 four `0.2.5` VSIX files. After Marketplace processing, acceptance must confirm
 all four targets, the visible `0.2.5` version, the corrected packaged README,
