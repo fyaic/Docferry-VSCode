@@ -24,6 +24,18 @@ export interface DeviceLoginStartResult {
   interval?: number;
 }
 
+export interface AuthStatusSummary {
+  authenticated?: boolean;
+  expires_at?: string;
+}
+
+export function accountContextPath(
+  workspaceRoots: readonly string[] | undefined,
+  homeDirectory: string
+): string {
+  return workspaceRoots?.[0] || homeDirectory;
+}
+
 export interface DetailedNoteIndicatorCopy {
   label: string;
   description: string;

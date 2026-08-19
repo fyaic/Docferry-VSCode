@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  accountContextPath,
   advancedImportDecision,
   buildCliArgs,
   classifyOperationError,
@@ -35,6 +36,12 @@ import {
   workspaceRootForPath,
   workspaceRelativePath
 } from "../contracts";
+
+test("account actions work before a workspace is opened", () => {
+  assert.equal(accountContextPath(undefined, "/Users/example"), "/Users/example");
+  assert.equal(accountContextPath([], "/Users/example"), "/Users/example");
+  assert.equal(accountContextPath(["/work/project"], "/Users/example"), "/work/project");
+});
 
 test("standard distribution CLI locations are cross-platform", () => {
   assert.deepEqual(defaultCliCandidates("/Users/alex", "darwin"), [

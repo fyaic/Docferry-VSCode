@@ -29,7 +29,19 @@ export async function run(): Promise<void> {
   assert.ok(extension, "DocFerry extension was not discovered by Extension Host");
   await extension.activate();
   assert.equal(extension.isActive, true);
-  assert.equal(extension.packageJSON.version, "0.2.5");
+  assert.equal(extension.packageJSON.version, "0.2.6");
+  assert.ok(
+    extension.packageJSON.activationEvents.includes("onStartupFinished"),
+    "DocFerry must expose account state without requiring users to find its view first"
+  );
+  assert.ok(
+    extension.packageJSON.contributes.viewsWelcome.some(
+      (entry: { when?: string; contents?: string }) =>
+        entry.when === "docferry.accountState == signedOut"
+        && entry.contents?.includes("command:docferry.signIn")
+    ),
+    "Signed-out users must get a native sign-in entry in the DocFerry view"
+  );
   assert.equal(extension.packageJSON.pricing, "Free");
   assert.equal(extension.packageJSON.preview, true);
   assert.equal(extension.packageJSON.capabilities.untrustedWorkspaces.supported, false);

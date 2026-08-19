@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import * as vscode from "vscode";
 
@@ -5,6 +6,8 @@ import { DocFerryCli } from "./cli";
 import { DetailedNoteManager } from "./imports";
 import {
   advancedImportDecision,
+  accountContextPath,
+  AuthStatusSummary,
   classifyOperationError,
   dashboardCommandArgs,
   DashboardLinkResult,
@@ -27,7 +30,7 @@ import {
   workspaceRootForPath,
   workspaceRelativePath
 } from "./contracts";
-import { DocFerryTreeProvider, FolderShareNode, NoteShareNode } from "./tree";
+import { AccountState, DocFerryTreeProvider, FolderShareNode, NoteShareNode } from "./tree";
 
 const SUPPORT_URL = "https://github.com/fyaic/Docferry-VSCode/issues";
 
@@ -37,19 +40,46 @@ export function activate(context: vscode.ExtensionContext): void {
   const detailedNotes = new DetailedNoteManager(context, cli);
   const tree = new DocFerryTreeProvider(cli, detailedNotes);
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 40);
+  let accountState: AccountState = "checking";
   status.name = "DocFerry";
   const updateStatus = () => {
     const detailedNote = detailedNotes.indicator();
-    status.text = detailedNote
-      ? `${detailedNote.ready ? "$(check)" : "$(sync~spin)"} Detailed note`
-      : "$(cloud-upload) DocFerry";
-    status.tooltip = detailedNote?.description || "Save a link to this workspace";
-    status.command = detailedNote ? "docferry.checkDetailedNote" : "docferry.saveLink";
+    if (detailedNote) {
+      status.text = `${detailedNote.ready ? "$(check)" : "$(sync~spin)"} Detailed note`;
+      status.tooltip = detailedNote.description;
+      status.command = "docferry.checkDetailedNote";
+      return;
+    }
+    if (accountState === "signedIn") {
+      status.text = "$(cloud-upload) DocFerry";
+      status.tooltip = "Save a link to this workspace";
+      status.command = "docferry.saveLink";
+      return;
+    }
+    if (accountState === "checking") {
+      status.text = "$(sync~spin) DocFerry";
+      status.tooltip = "Checking your DocFerry account";
+      status.command = "docferry.refresh";
+      return;
+    }
+    if (accountState === "error") {
+      status.text = "$(warning) DocFerry";
+      status.tooltip = "DocFerry could not check your account. Select to try again.";
+      status.command = "docferry.refresh";
+      return;
+    }
+    status.text = "$(account) Connect DocFerry";
+    status.tooltip = "Connect your Bondie account in the system browser";
+    status.command = "docferry.signIn";
+  };
+  const setAccountState = (state: AccountState) => {
+    accountState = state;
+    tree.setAccountState(state);
+    void vscode.commands.executeCommand("setContext", "docferry.accountState", state);
+    updateStatus();
   };
   updateStatus();
-  if (vscode.workspace.workspaceFolders?.length) {
-    status.show();
-  }
+  status.show();
 
   context.subscriptions.push(
     output,
@@ -59,22 +89,26 @@ export function activate(context: vscode.ExtensionContext): void {
     detailedNotes.onDidChangeState(updateStatus),
     vscode.window.registerTreeDataProvider("docferry.workspace", tree),
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
-      if (vscode.workspace.workspaceFolders?.length) {
-        status.show();
-      } else {
-        status.hide();
-      }
       tree.refresh();
       void detailedNotes.resume();
     }),
-    vscode.commands.registerCommand("docferry.refresh", () => tree.refresh()),
+    vscode.commands.registerCommand(
+      "docferry.refresh",
+      () => refreshAccountState(cli, setAccountState)
+    ),
     vscode.commands.registerCommand(
       "docferry.openDashboard",
       (section: DashboardSection = "home") => openDashboard(cli, section)
     ),
     vscode.commands.registerCommand("docferry.openUrl", (url: string) => openExternal(url)),
-    vscode.commands.registerCommand("docferry.signIn", () => signIn(cli, tree, detailedNotes)),
-    vscode.commands.registerCommand("docferry.signOut", () => signOut(cli, tree, detailedNotes)),
+    vscode.commands.registerCommand(
+      "docferry.signIn",
+      () => signIn(cli, tree, setAccountState, detailedNotes)
+    ),
+    vscode.commands.registerCommand(
+      "docferry.signOut",
+      () => signOut(cli, tree, detailedNotes, setAccountState)
+    ),
     vscode.commands.registerCommand("docferry.showMembership", () => showMembership(cli)),
     vscode.commands.registerCommand("docferry.shareCurrentFile", (uri?: vscode.Uri) => shareMarkdown(cli, tree, uri)),
     vscode.commands.registerCommand("docferry.shareFolder", (uri?: vscode.Uri) => shareFolder(cli, tree, uri)),
@@ -102,6 +136,7 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
   void detailedNotes.resume();
+  void refreshAccountState(cli, setAccountState);
 }
 
 export function deactivate(): void {}
@@ -109,15 +144,13 @@ export function deactivate(): void {}
 async function signIn(
   cli: DocFerryCli,
   tree: DocFerryTreeProvider,
+  setAccountState: (state: AccountState) => void,
   detailedNotes?: DetailedNoteManager
 ): Promise<void> {
   if (detailedNotes && !(await detailedNotes.guardAccountChange())) {
     return;
   }
-  const workspacePath = await pickWorkspacePath();
-  if (!workspacePath) {
-    return;
-  }
+  const workspacePath = currentAccountContextPath();
   const started = await runWithProgress(
     "Preparing secure sign-in",
     (token) => cli.runJson<DeviceLoginStartResult>(workspacePath, VS_CODE_LOGIN_START_ARGS, {
@@ -136,7 +169,7 @@ async function signIn(
   let browserOpened = await openExternal(loginUrl, false);
   if (!browserOpened) {
     const action = await vscode.window.showWarningMessage(
-      `Open your system browser to connect DocFerry${started.user_code ? ` with code ${started.user_code}` : ""}.`,
+      "Open your system browser to connect DocFerry.",
       "Open sign-in page",
       "Copy link",
       "Cancel"
@@ -165,15 +198,19 @@ async function signIn(
   if (!result) {
     return;
   }
+  setAccountState("signedIn");
   tree.refresh();
-  void vscode.window.showInformationMessage("DocFerry is connected to your Bondie account.");
+  const action = await vscode.window.showInformationMessage(
+    "DocFerry is connected to your Bondie account.",
+    "Open dashboard"
+  );
+  if (action === "Open dashboard") {
+    await openDashboard(cli, "home");
+  }
 }
 
 async function openDashboard(cli: DocFerryCli, section: DashboardSection): Promise<void> {
-  const workspacePath = await pickWorkspacePath();
-  if (!workspacePath) {
-    return;
-  }
+  const workspacePath = currentAccountContextPath();
   const result = await runWithProgress(
     "Opening DocFerry Dashboard",
     (token) => cli.runJson<DashboardLinkResult>(workspacePath, dashboardCommandArgs(section), {
@@ -195,15 +232,13 @@ async function openDashboard(cli: DocFerryCli, section: DashboardSection): Promi
 async function signOut(
   cli: DocFerryCli,
   tree: DocFerryTreeProvider,
-  detailedNotes: DetailedNoteManager
+  detailedNotes: DetailedNoteManager,
+  setAccountState: (state: AccountState) => void
 ): Promise<void> {
   if (!(await detailedNotes.guardAccountChange())) {
     return;
   }
-  const workspacePath = await pickWorkspacePath();
-  if (!workspacePath) {
-    return;
-  }
+  const workspacePath = currentAccountContextPath();
   const approved = await vscode.window.showWarningMessage(
     "Sign out of DocFerry on this computer?",
     { modal: true },
@@ -219,15 +254,13 @@ async function signOut(
   if (!result) {
     return;
   }
+  setAccountState("signedOut");
   tree.refresh();
   void vscode.window.showInformationMessage("Signed out of DocFerry.");
 }
 
 async function showMembership(cli: DocFerryCli): Promise<void> {
-  const workspacePath = await pickWorkspacePath();
-  if (!workspacePath) {
-    return;
-  }
+  const workspacePath = currentAccountContextPath();
   const membership = await runWithProgress(
     "Checking DocFerry plan and usage",
     (token) => cli.runJson<MembershipSummary>(workspacePath, ["membership"], {
@@ -386,7 +419,7 @@ async function saveLink(
         "Save link only"
       );
       if (action === "Sign in") {
-        await signIn(cli, tree);
+        await vscode.commands.executeCommand("docferry.signIn");
         try {
           membership = await cli.runJson<MembershipSummary>(workspacePath, ["membership"], {
             label: "Check Import access after sign in",
@@ -712,6 +745,29 @@ async function pickWorkspacePath(): Promise<string | undefined> {
     { title: "Choose a workspace for DocFerry", placeHolder: "Workspace" }
   );
   return picked?.folder.uri.fsPath;
+}
+
+function currentAccountContextPath(): string {
+  return accountContextPath(
+    vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath),
+    os.homedir()
+  );
+}
+
+async function refreshAccountState(
+  cli: DocFerryCli,
+  setAccountState: (state: AccountState) => void
+): Promise<void> {
+  setAccountState("checking");
+  try {
+    const status = await cli.runJson<AuthStatusSummary>(currentAccountContextPath(), ["auth", "status"], {
+      label: "Check account",
+      timeoutSeconds: 30
+    });
+    setAccountState(status.authenticated ? "signedIn" : "signedOut");
+  } catch (error) {
+    setAccountState(isAuthenticationError(error) ? "signedOut" : "error");
+  }
 }
 
 async function runWithProgress<T>(
