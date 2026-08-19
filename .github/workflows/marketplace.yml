@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Checksummed GitHub release to verify before manual Marketplace upload
         required: true
-        default: v0.2.5
+        default: v0.2.6
         type: string
 
 permissions:

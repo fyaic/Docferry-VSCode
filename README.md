@@ -25,8 +25,9 @@ DocFerry works with ordinary folders and repositories; Obsidian is optional.
 
 1. Install **DocFerry** from the VS Code Marketplace or a checksummed release VSIX.
 2. Open a trusted local folder or repository.
-3. Open DocFerry in the Activity Bar and choose **Sign in or switch account**.
-4. Approve the one-time code in your system browser.
+3. Open DocFerry in the Activity Bar and choose **Connect Bondie account**.
+4. Choose the account in your system browser, approve the connection, and
+   return to VS Code.
 
 The extension includes its required DocFerry helper. You do not need Python,
 the DocFerry CLI, an Obsidian vault, or a separate authentication token.

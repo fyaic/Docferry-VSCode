@@ -13,6 +13,8 @@ import {
   workspaceRootForPath
 } from "./contracts";
 
+export type AccountState = "checking" | "signedOut" | "signedIn" | "error";
+
 type TreeNode = ActionNode | GroupNode | MessageNode | NoteShareNode | FolderShareNode;
 
 interface ActionNode {
@@ -25,9 +27,10 @@ interface ActionNode {
 
 interface GroupNode {
   kind: "group";
-  group: "notes" | "folders";
+  group: "account" | "notes" | "folders";
   label: string;
   icon: string;
+  description?: string;
 }
 
 interface MessageNode {
@@ -56,7 +59,7 @@ export interface FolderShareNode {
   sourcePath?: string;
 }
 
-const ACTIONS: ActionNode[] = [
+const START_ACTIONS: ActionNode[] = [
   {
     kind: "action",
     label: "Save a link",
@@ -77,7 +80,10 @@ const ACTIONS: ActionNode[] = [
     description: "Publish its Markdown files",
     icon: "folder-opened",
     command: "docferry.shareFolder"
-  },
+  }
+];
+
+const ACCOUNT_ACTIONS: ActionNode[] = [
   {
     kind: "action",
     label: "Plan and usage",
@@ -87,8 +93,8 @@ const ACTIONS: ActionNode[] = [
   },
   {
     kind: "action",
-    label: "Sign in or switch account",
-    description: "Continue in your system browser",
+    label: "Switch Bondie account",
+    description: "Choose another account in your browser",
     icon: "sign-in",
     command: "docferry.signIn"
   },
@@ -98,10 +104,18 @@ const ACTIONS: ActionNode[] = [
     description: "Manage DocFerry in your browser",
     icon: "globe",
     command: "docferry.openDashboard"
+  },
+  {
+    kind: "action",
+    label: "Sign out",
+    description: "Disconnect on this computer",
+    icon: "sign-out",
+    command: "docferry.signOut"
   }
 ];
 
 const GROUPS: GroupNode[] = [
+  { kind: "group", group: "account", label: "Account and plan", description: "Connected", icon: "account" },
   { kind: "group", group: "notes", label: "Shared notes", icon: "files" },
   { kind: "group", group: "folders", label: "Shared folders", icon: "folder-library" }
 ];
@@ -110,6 +124,7 @@ export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode>, 
   private readonly changeEmitter = new vscode.EventEmitter<TreeNode | undefined>();
   private readonly detailedNoteSubscription?: vscode.Disposable;
   private readonly delayedRefreshes = new Set<NodeJS.Timeout>();
+  private accountState: AccountState = "checking";
   readonly onDidChangeTreeData = this.changeEmitter.event;
 
   constructor(
@@ -130,6 +145,14 @@ export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode>, 
 
   refresh(): void {
     this.changeEmitter.fire(undefined);
+  }
+
+  setAccountState(state: AccountState): void {
+    if (this.accountState === state) {
+      return;
+    }
+    this.accountState = state;
+    this.refresh();
   }
 
   refreshAfterMutation(): void {
@@ -153,6 +176,7 @@ export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode>, 
     }
     if (node.kind === "group") {
       const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.Collapsed);
+      item.description = node.description;
       item.iconPath = new vscode.ThemeIcon(node.icon);
       return item;
     }
@@ -182,7 +206,10 @@ export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode>, 
 
   async getChildren(node?: TreeNode): Promise<TreeNode[]> {
     if (!node) {
-      const actions = [...ACTIONS];
+      if (this.accountState !== "signedIn") {
+        return [];
+      }
+      const actions = [...START_ACTIONS];
       const detailedNote = this.detailedNotes?.indicator();
       if (detailedNote) {
         actions.splice(1, 0, {
@@ -197,6 +224,9 @@ export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode>, 
     }
     if (node.kind !== "group") {
       return [];
+    }
+    if (node.group === "account") {
+      return ACCOUNT_ACTIONS;
     }
     const workspacePath = this.workspaceContextPath();
     if (!workspacePath) {

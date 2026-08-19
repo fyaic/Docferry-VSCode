@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.6 - 2026-08-19
+
+### Fixed
+
+- Added a native signed-out welcome view and a visible status-bar connection
+  action at startup so first-time users do not need to search the command
+  palette or open the DocFerry view first.
+- Allowed sign-in, sign-out, membership, and Dashboard actions before a project
+  folder is open; file and folder operations remain workspace-scoped.
+- Grouped account actions after sign-in and removed one-time-code wording from
+  the extension's browser-open recovery message.
+
 ## 0.2.5 - 2026-08-17
 
 ### Fixed

@@ -2,7 +2,7 @@
   "name": "docferry",
   "displayName": "DocFerry",
   "description": "Save links, create detailed notes, and share Markdown files or folders from VS Code.",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "publisher": "bondie",
   "author": {
     "name": "Bondie",
@@ -57,6 +57,7 @@
   },
   "main": "./dist/extension.js",
   "activationEvents": [
+    "onStartupFinished",
     "onView:docferry.workspace",
     "onCommand:docferry.signIn",
     "onCommand:docferry.signOut",
@@ -179,12 +180,39 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "docferry.workspace",
+        "contents": "Starting DocFerry...",
+        "when": "!docferry.accountState"
+      },
+      {
+        "view": "docferry.workspace",
+        "contents": "Checking your DocFerry account...",
+        "when": "docferry.accountState == checking"
+      },
+      {
+        "view": "docferry.workspace",
+        "contents": "Connect your Bondie account to continue.\n[Connect Bondie account](command:docferry.signIn)\nUses your system browser.",
+        "when": "docferry.accountState == signedOut"
+      },
+      {
+        "view": "docferry.workspace",
+        "contents": "DocFerry could not check your account.\n[Try again](command:docferry.refresh)\n[Get support](https://github.com/fyaic/Docferry-VSCode/issues)",
+        "when": "docferry.accountState == error"
+      }
+    ],
     "menus": {
       "view/title": [
         {
+          "command": "docferry.signIn",
+          "when": "view == docferry.workspace && docferry.accountState == signedOut",
+          "group": "navigation@1"
+        },
+        {
           "command": "docferry.refresh",
           "when": "view == docferry.workspace",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "editor/title": [
