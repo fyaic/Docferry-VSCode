@@ -8,8 +8,9 @@
    changed later, so verify spelling and ownership before submission.
 3. Fill the company profile from [PUBLISHER_PROFILE.md](PUBLISHER_PROFILE.md),
    including the checked 128 x 128 Bondie mark.
-4. Save the publisher, then verify ownership of `bondie.io` using the exact DNS
-   record shown by Marketplace.
+4. Save `https://bondie.io` as the publisher domain and retain the exact DNS TXT
+   record shown by Marketplace. Trusted-publisher verification is a later
+   reputation gate; see **Verified publisher boundary** below.
 5. Add a second company-controlled owner so publisher recovery does not depend
    on one Microsoft account.
 6. Accept the current Visual Studio Marketplace Publisher Agreement.
@@ -22,6 +23,26 @@ guarded manual upload: GitHub Actions verifies the exact release assets first,
 then the signed-in Owner uploads those same files through the Marketplace
 publisher page. The repository stores no Marketplace PAT, Microsoft password,
 or application secret.
+
+## Verified publisher boundary
+
+The verified badge is not a release prerequisite. Marketplace requires both of
+these conditions before an application is eligible:
+
+- the publisher has at least one extension in Marketplace for six months;
+- the registered root domain is at least six months old.
+
+Marketplace Support confirmed on `2026-08-18` that Bondie's request was
+deferred solely because this track record is too new. Registry data records
+`bondie.io` creation at `2026-05-14T02:47:11Z`; the first DocFerry Marketplace
+packages were accepted in August 2026. The later extension threshold controls,
+so the operational reapplication date is `2027-02-13` or later.
+
+Do not repeatedly resubmit before that date and do not change the publisher
+display name, because a display-name change revokes an existing verified badge.
+Continue normal extension releases while the badge is pending. The governing
+criteria are documented in the
+[official publishing guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#verify-a-publisher).
 
 ## Release artifacts
 

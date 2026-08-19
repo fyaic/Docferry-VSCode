@@ -43,10 +43,30 @@ belongs in `README.md`, where Free and Pro capabilities are disclosed.
 ## After creation
 
 1. Save the publisher before starting domain verification.
-2. Verify `bondie.io` using the exact DNS instructions shown by Marketplace.
+2. Keep `https://bondie.io` as the publisher domain and preserve control of the
+   Marketplace DNS TXT record. Do not resubmit trusted-publisher verification
+   before `2027-02-13`; both the domain registration and at least one published
+   extension must independently be at least six months old.
 3. Add a second company-controlled owner so the publisher has no single-person
    recovery dependency.
 4. Keep human accounts at the minimum role needed. Use a Contributor identity,
    not an Owner identity, for future automated publishing.
 5. Upload all four target-specific VSIX assets from the same checksummed GitHub
    prerelease for the first `bondie.docferry` submission.
+
+## Trusted-publisher eligibility
+
+Domain ownership and the Marketplace verified badge are separate states. The
+domain is configured correctly, but Marketplace Support deferred the badge on
+2026-08-18 because the required track record is not yet old enough.
+
+- `bondie.io` was registered on `2026-05-14`; its six-month threshold is
+  `2026-11-14`.
+- `bondie.docferry` first entered Marketplace in August 2026; the extension
+  threshold is the later constraint.
+- Reapply on or after `2027-02-13`, then retain Marketplace's review response as
+  low-sensitivity release evidence.
+
+The missing badge does not block publishing, installation, updates, billing, or
+the Preview channel. See the
+[official verified-publisher prerequisites](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#verify-a-publisher).

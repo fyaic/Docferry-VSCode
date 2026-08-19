@@ -72,16 +72,12 @@ The isolated login configuration and generated test workspace lived under
 
 ## Publisher domain
 
-The Publisher Details page currently states:
-
-> Your request to verify the domain is submitted to the marketplace team for
-> processing.
-
-The publisher domain is `https://bondie.io`. The public Gallery API still
-reports publisher flag `verified` and `isDomainVerified=false`. Therefore the
-owner-side DNS and submission steps are complete; the remaining badge state is
-Marketplace-team processing and propagation, not an extension publication
-blocker.
+The publisher domain is `https://bondie.io`. The public Gallery API reports
+`isDomainVerified=false`. Marketplace Support later confirmed on `2026-08-18`
+that the request is deferred by the six-month domain-and-extension track-record
+prerequisite, rather than waiting for ordinary propagation. The operational
+reapplication date is `2027-02-13` or later. The badge remains independent of
+extension publication and installation.
 
 ## Remaining release operation
 
