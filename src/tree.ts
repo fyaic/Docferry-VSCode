@@ -70,14 +70,14 @@ const START_ACTIONS: ActionNode[] = [
   {
     kind: "action",
     label: "Share current Markdown",
-    description: "Create a DocFerry link",
+    description: "Include supported local files",
     icon: "cloud-upload",
     command: "docferry.shareCurrentFile"
   },
   {
     kind: "action",
     label: "Share a folder",
-    description: "Publish its Markdown files",
+    description: "Publish notes and local files",
     icon: "folder-opened",
     command: "docferry.shareFolder"
   }
@@ -125,6 +125,7 @@ export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode>, 
   private readonly detailedNoteSubscription?: vscode.Disposable;
   private readonly delayedRefreshes = new Set<NodeJS.Timeout>();
   private accountState: AccountState = "checking";
+  private folderShareEnabled = false;
   readonly onDidChangeTreeData = this.changeEmitter.event;
 
   constructor(
@@ -152,6 +153,14 @@ export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode>, 
       return;
     }
     this.accountState = state;
+    this.refresh();
+  }
+
+  setFolderShareEnabled(enabled: boolean): void {
+    if (this.folderShareEnabled === enabled) {
+      return;
+    }
+    this.folderShareEnabled = enabled;
     this.refresh();
   }
 
@@ -209,7 +218,9 @@ export class DocFerryTreeProvider implements vscode.TreeDataProvider<TreeNode>, 
       if (this.accountState !== "signedIn") {
         return [];
       }
-      const actions = [...START_ACTIONS];
+      const actions = START_ACTIONS.filter(
+        (action) => action.command !== "docferry.shareFolder" || this.folderShareEnabled
+      );
       const detailedNote = this.detailedNotes?.indicator();
       if (detailedNote) {
         actions.splice(1, 0, {

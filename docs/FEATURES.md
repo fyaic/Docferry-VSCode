@@ -11,13 +11,15 @@ separate entitlement model.
 | Import DocFerry share | Complete | Saves into the selected workspace |
 | Save ordinary public link | Complete | No remote source fetch |
 | Advanced Import | Complete | Pro capability, provider contract, confirmation |
-| Share Markdown | Complete | Free/Pro server limits |
-| Share visible Markdown folder | Complete | Pro capability and atomic revision |
+| Share Markdown and local assets | Complete | Free/Pro server limits; workspace-contained supported files |
+| Share visible Markdown folder and local assets | Complete | Server capability, atomic revision, workspace containment |
 | Open/copy/update/stop share | Complete | Note and folder variants |
 | Delete stopped history | Complete | Separate permanent confirmation |
 | Plan and usage | Complete | Notes, folders, and detailed-note monthly usage |
 | Full Obsidian theme capture | Not applicable | Requires Obsidian rendering context |
 | Agent conversation slash commands | Separate Agent Kit | CLI/MCP/Skill distribution, not VS Code Chat transcript access |
 
-The extension uses returned limits and feature gates and cannot grant or mutate
+Folder Share creation is shown only when the signed-in service grants
+`docferry.publish.folder`; existing folder history remains visible. The
+extension uses returned limits and feature gates and cannot grant or mutate
 server-managed access roles.

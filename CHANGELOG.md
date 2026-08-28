@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.7 - 2026-08-28
+
+### Added
+
+- Publish supported workspace-local images, audio, video, and attachments
+  referenced by a shared Markdown file or folder. Hidden, unsupported, and
+  outside-workspace files remain private.
+- Show a concise notice when referenced local files are omitted, with redacted
+  details available in the local DocFerry output channel.
+
+### Fixed
+
+- Accept the current DocFerry account-selection login contract while continuing
+  to reject untrusted origins, return paths, prompts, and query parameters.
+- Use the same workspace identity and cross-surface share claim/update rules as
+  current DocFerry mainline, preventing duplicate ownership across VS Code,
+  Obsidian, CLI, and MCP.
+- Hide the Folder Share creation action unless the signed-in service grants the
+  `docferry.publish.folder` capability. Existing folder history remains visible.
+
+### Changed
+
+- Updated the bundled and minimum Agent Kit version to `0.4.6`.
+
 ## 0.2.6 - 2026-08-19
 
 ### Fixed

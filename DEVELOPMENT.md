@@ -17,10 +17,11 @@ npm run build:helper
 npm run package:vsix
 ```
 
-`sync:agent-kit` refreshes the three pinned CLI runtime files when this directory
-is built inside the private DocFerry monorepo. In the public release repository,
-it verifies and preserves the vendored runtime recorded in
-`runtime/PROVENANCE.json`.
+`sync:agent-kit` refreshes the five pinned CLI runtime files when this directory
+is built inside the DocFerry monorepo. From a standalone public checkout, set
+`DOCFERRY_MONOREPO_ROOT` to a reviewed DocFerry mainline checkout when advancing
+the vendored runtime. With no source checkout configured, the command verifies
+and preserves the runtime recorded in `runtime/PROVENANCE.json`.
 
 The generated VSIX is platform-specific because it contains a native helper and
 its private runtime directory under `bin/helper/`. Never copy that directory

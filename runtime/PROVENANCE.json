@@ -2,10 +2,12 @@
   "canonical_source": "agent-kit/src/docferry_agent_kit",
   "component": "docferry-agent-kit-cli-runtime",
   "files": {
-    "__init__.py": "6c111b140917e8e2f6f50a62f7a3c998c88141cbb896a5a012232c89702da52b",
-    "cli.py": "e746b8cd7783988c8da0b369ea9cebbb12d921ff470afba070624b78710feee5",
-    "conversation.py": "421e065a0fae11c0024a8089d0a6bebcc3bc9816664aa083719cc9c2889f27d7"
+    "__init__.py": "b8e0ef8b4e686a20cff354a4cb5a06e844703da28625cb64e08f4d3077cca5a8",
+    "cli.py": "302d14052f36d8129d6757f8dda3ebae61f9f0d1271b308fb260836f3993c940",
+    "conversation.py": "421e065a0fae11c0024a8089d0a6bebcc3bc9816664aa083719cc9c2889f27d7",
+    "local_assets.py": "5228332c524e02ca15aa90d810236828e95558b71360a175e658cea8644be639",
+    "workspace_identity.py": "9446f4e55e3d5017504a16ae23e8a7661fd254a217bb9645719d0c5725f6052b"
   },
   "schema_version": 1,
-  "version": "0.4.4"
+  "version": "0.4.6"
 }

@@ -8,6 +8,7 @@ import {
   accountContextPath,
   advancedImportDecision,
   buildCliArgs,
+  canCreateFolderShare,
   classifyOperationError,
   dashboardCommandArgs,
   detailedNoteIndicatorCopy,
@@ -20,6 +21,7 @@ import {
   isSupportedAgentKitVersion,
   isTrustedDashboardHandoffUrl,
   isTrustedDeviceLoginUrl,
+  localAssetWarningCount,
   mediaNoteProviderForUrl,
   mediaNoteFailureMessage,
   mediaNotePreview,
@@ -127,9 +129,9 @@ test("workspace matching resolves aliases and chooses the most specific root", (
 });
 
 test("Agent Kit version contract requires the current Marketplace runtime", () => {
-  assert.equal(isSupportedAgentKitVersion("docferry 0.4.4\n"), true);
+  assert.equal(isSupportedAgentKitVersion("docferry 0.4.6\n"), true);
   assert.equal(isSupportedAgentKitVersion("docferry 0.5.0\n"), true);
-  assert.equal(isSupportedAgentKitVersion("docferry 0.4.3\n"), false);
+  assert.equal(isSupportedAgentKitVersion("docferry 0.4.5\n"), false);
   assert.equal(isSupportedAgentKitVersion("unexpected output\n"), false);
 });
 
@@ -167,12 +169,27 @@ test("VS Code sign-in uses its product-owned system-browser Device Code flow", (
     "--no-browser"
   ]);
   assert.equal(
-    isTrustedDeviceLoginUrl("https://docferry.bondie.io/activate?user_code=BOND-1234"),
+    isTrustedDeviceLoginUrl(
+      "https://docferry.bondie.io/v0/auth/login?instance_type=web_dashboard&prompt=select_account&return_path=%2Factivate%3Fuser_code%3DBOND-1234"
+    ),
     true
   );
-  assert.equal(isTrustedDeviceLoginUrl("https://account.bondie.io/activate?user_code=BOND-1234"), false);
   assert.equal(
-    isTrustedDeviceLoginUrl("https://docferry.bondie.io/activate?user_code=BOND-1234&next=bad"),
+    isTrustedDeviceLoginUrl(
+      "https://account.bondie.io/v0/auth/login?instance_type=web_dashboard&prompt=select_account&return_path=%2Factivate%3Fuser_code%3DBOND-1234"
+    ),
+    false
+  );
+  assert.equal(
+    isTrustedDeviceLoginUrl(
+      "https://docferry.bondie.io/v0/auth/login?instance_type=web_dashboard&prompt=select_account&return_path=https%3A%2F%2Fevil.example%2Factivate%3Fuser_code%3DBOND-1234"
+    ),
+    false
+  );
+  assert.equal(
+    isTrustedDeviceLoginUrl(
+      "https://docferry.bondie.io/v0/auth/login?instance_type=web_dashboard&prompt=login&return_path=%2Factivate%3Fuser_code%3DBOND-1234"
+    ),
     false
   );
 });
@@ -180,12 +197,31 @@ test("VS Code sign-in uses its product-owned system-browser Device Code flow", (
 test("folder sharing makes whole-workspace scope explicit", () => {
   assert.deepEqual(folderShareConfirmation("Project", "."), {
     message: "Share the entire “Project” workspace?",
-    detail: "This publishes every visible Markdown file in the workspace and its subfolders. Hidden and non-Markdown files stay private."
+    detail: "This publishes visible Markdown plus supported local images, audio, video, and attachments referenced by those notes. Hidden, unsupported, and outside-workspace files stay private."
   });
   assert.deepEqual(folderShareConfirmation("Project", "notes/research"), {
     message: "Share Markdown files in “research”?",
-    detail: "Selected folder: notes/research. Visible Markdown files in this folder and its subfolders will be published."
+    detail: "Selected folder: notes/research. Visible Markdown and supported referenced local files in this folder and its subfolders will be published."
   });
+});
+
+test("Folder Share creation follows the server capability instead of plan names", () => {
+  assert.equal(canCreateFolderShare({}), false);
+  assert.equal(canCreateFolderShare({ plan_key: "pro_monthly" }), false);
+  assert.equal(canCreateFolderShare({ access_role: "admin" }), false);
+  assert.equal(canCreateFolderShare({ feature_gates: { "docferry.publish.folder": true } }), true);
+});
+
+test("local asset warning parsing ignores unrelated helper output", () => {
+  assert.equal(localAssetWarningCount(""), 0);
+  assert.equal(localAssetWarningCount("notice: retrying\n"), 0);
+  assert.equal(
+    localAssetWarningCount(
+      "warning: local reference unsupported format: diagram.svg\n"
+      + "warning: local reference outside workspace: ../secret.png\n"
+    ),
+    2
+  );
 });
 
 test("import folder must stay visible and relative", () => {

@@ -3,15 +3,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 
 
 EXTENSION_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = EXTENSION_ROOT.parent
+REPO_ROOT = Path(os.environ.get("DOCFERRY_MONOREPO_ROOT", EXTENSION_ROOT.parent)).expanduser().resolve()
 SOURCE = REPO_ROOT / "agent-kit" / "src" / "docferry_agent_kit"
 TARGET = EXTENSION_ROOT / "runtime" / "src" / "docferry_agent_kit"
-FILES = ("__init__.py", "cli.py", "conversation.py")
+FILES = ("__init__.py", "cli.py", "conversation.py", "local_assets.py", "workspace_identity.py")
 
 
 def sha256(path: Path) -> str:

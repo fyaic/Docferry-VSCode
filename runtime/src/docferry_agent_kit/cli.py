@@ -20,6 +20,7 @@ from http.cookiejar import CookieJar
 from pathlib import Path
 from pathlib import PurePosixPath
 from threading import Event, Thread
+from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 from urllib.request import HTTPCookieProcessor, ProxyHandler, Request, build_opener
@@ -30,11 +31,19 @@ from .conversation import (
     resolve_conversation_destination,
     save_conversation,
 )
+from .local_assets import prepare_local_assets
+from .workspace_identity import (
+    legacy_workspace_ids,
+    source_paths_match,
+    source_path_matches_workspace,
+    unresolved_workspace_path,
+    workspace_id,
+)
 
 DEFAULT_SERVER_URL = "https://docferry.bondie.io"
 OFFICIAL_SANDBOX_SERVER_URL = "https://sandbox-docferry.bondie.io"
 PERSISTED_SERVER_URLS = frozenset({DEFAULT_SERVER_URL, OFFICIAL_SANDBOX_SERVER_URL})
-DOCFERRY_CLI_VERSION = "0.4.4"
+DOCFERRY_CLI_VERSION = "0.4.6"
 DEVICE_LOGIN_MAX_TRANSIENT_FAILURES = 5
 DEVICE_LOGIN_MAX_RETRY_SECONDS = 15
 MANDATORY_ADVANCED_IMPORT_PROVIDERS = frozenset({"bilibili", "tiktok", "douyin"})
@@ -69,6 +78,14 @@ In a terminal, pass conversation JSON or stdin; share auto-detects Markdown file
 and folders. share-file and share-folder remain available as explicit aliases.
 Every public share and unshare requires confirmation.
 """
+
+
+def runtime_client_platform() -> str:
+    if sys.platform == "darwin":
+        return "darwin"
+    if sys.platform.startswith("win"):
+        return "win32"
+    return "linux"
 
 
 @dataclass
@@ -196,6 +213,28 @@ class Client:
         extra_headers: dict[str, str] | None = None,
     ) -> Response:
         return self.request("POST", path, body=body, auth=auth, extra_headers=extra_headers)
+
+    def post_bytes(
+        self,
+        path: str,
+        *,
+        data: bytes,
+        auth: bool = False,
+        extra_headers: dict[str, str] | None = None,
+    ) -> Response:
+        headers = {"User-Agent": f"DocFerryCLI/{DOCFERRY_CLI_VERSION}"}
+        if auth:
+            if not self.token:
+                raise CliError("No DocFerry session. Run `docferry login` first.")
+            headers["Authorization"] = f"Bearer {self.token}"
+        if extra_headers:
+            headers.update(extra_headers)
+        request = Request(urljoin(f"{self.base_url}/", path.lstrip("/")), data=data, headers=headers, method="POST")
+        try:
+            response = self.opener.open(request, timeout=30)
+            return Response(response.status, response.read().decode("utf-8"))
+        except HTTPError as exc:
+            return Response(exc.code, exc.read().decode("utf-8"))
 
     def put(self, path: str, *, body: dict[str, object], auth: bool = False) -> Response:
         return self.request("PUT", path, body=body, auth=auth)
@@ -414,6 +453,7 @@ def main() -> int:
 
     revoke = subparsers.add_parser("revoke")
     revoke.add_argument("share_id")
+    revoke.add_argument("--confirm", action="store_true")
 
     import_url = subparsers.add_parser("import-url")
     import_url.add_argument("url")
@@ -539,14 +579,16 @@ def main() -> int:
         elif args.command == "history":
             print_json(share_history_summary(client, args.limit))
         elif args.command in {"publish", "share-file"}:
-            print_json(require_ok(client.post("/v0/shares", body=share_payload(args), auth=True), "publish").json())
+            print_json(require_ok(client.post("/v0/shares", body=share_payload(client, args), auth=True), "publish").json())
         elif args.command == "share-folder":
             print_json(publish_folder(client, args))
         elif args.command == "update":
             share_id = normalized_share_id(args.share_id)
+            update_payload = share_payload(client, args, is_update=True)
+            add_expected_vault_id_for_update(client, share_id, update_payload, args.workspace)
             print_json(
                 require_ok(
-                    client.put(f"/v0/shares/{share_id}", body=share_payload(args, is_update=True), auth=True),
+                    client.put(f"/v0/shares/{share_id}", body=update_payload, auth=True),
                     "update",
                 ).json()
             )
@@ -565,8 +607,7 @@ def main() -> int:
             share_id = normalized_share_id(args.share_id)
             print_json(require_ok(client.get(f"/v0/shares/{share_id}/links", auth=True), "links").json())
         elif args.command == "revoke":
-            share_id = normalized_share_id(args.share_id)
-            print_json(require_ok(client.delete(f"/v0/shares/{share_id}", auth=True), "revoke").json())
+            print_json(unshare_command(client, args))
         elif args.command == "unshare":
             print_json(unshare_command(client, args))
         elif args.command == "delete-history":
@@ -698,7 +739,7 @@ def conversation_command(client: Client, args: argparse.Namespace) -> dict[str, 
         expires_at=args.expires_at,
     )
     response = require_ok(
-        client.post("/v0/shares", body=share_payload(share_args), auth=True),
+        client.post("/v0/shares", body=share_payload(client, share_args), auth=True),
         "share conversation",
     ).json()
     return {
@@ -727,7 +768,7 @@ def share_command(client: Client, args: argparse.Namespace) -> dict[str, object]
         return require_ok(
             client.post(
                 "/v0/shares",
-                body=share_payload(share_args),
+                body=share_payload(client, share_args),
                 auth=True,
             ),
             "share file",
@@ -907,12 +948,80 @@ def validated_dashboard_handoff_url(server_url: str, value: object) -> str:
 
 
 def list_share_summary(client: Client, limit: int) -> dict[str, object]:
-    bounded = max(1, min(limit, 100))
+    bounded = max(1, min(limit, 200))
     body = require_ok(client.get(f"/v0/shares?limit={bounded}", auth=True), "list shares").json()
     return {
         "shares": body.get("shares") if isinstance(body.get("shares"), list) else [],
         "total": body.get("total"),
     }
+
+
+def add_expected_vault_id_for_update(
+    client: Client,
+    share_id: str,
+    payload: dict[str, object],
+    workspace: str | None,
+) -> None:
+    root = cli_workspace_root(workspace)
+    local_vault_id = workspace_id(root)
+    row = require_ok(client.get(f"/v0/shares/{share_id}", auth=True), "locate share source vault").json()
+    remote_vault_id = row.get("vault_id")
+    if remote_vault_id == local_vault_id:
+        remote_source_path = row.get("source_path")
+        if not source_paths_match(
+            remote_source_path,
+            payload.get("source_path"),
+            case_insensitive=runtime_client_platform() == "win32",
+        ):
+            if not isinstance(remote_source_path, str) or not remote_source_path.strip():
+                raise CliError("DocFerry did not return the current Share source path.")
+            payload["expected_source_path"] = remote_source_path
+        return
+    raw_root = unresolved_workspace_path(workspace)
+    if remote_vault_id is None:
+        relative_path = str(payload.get("source_path") or "")
+        if not source_path_matches_workspace(row.get("source_path"), root, relative_path, raw_root):
+            raise CliError("This historical Share does not belong to this workspace source note.")
+        payload["expected_source_path"] = row.get("source_path")
+        payload["expected_vault_id"] = None
+        return
+    if remote_vault_id in legacy_workspace_ids(root, raw_root):
+        payload["expected_vault_id"] = remote_vault_id
+        payload["expected_source_path"] = row.get("source_path")
+        return
+    raise CliError("This Share belongs to another workspace. Update it from that workspace instead.")
+
+
+def add_expected_folder_vault_id_for_update(
+    client: Client,
+    folder_share_id: str,
+    payload: dict[str, object],
+    workspace: str | None,
+) -> None:
+    root = cli_workspace_root(workspace)
+    local_vault_id = workspace_id(root)
+    row = require_ok(
+        client.get(f"/v0/folder-shares/{folder_share_id}", auth=True),
+        "locate folder share source vault",
+    ).json()
+    remote_vault_id = row.get("vault_id")
+    if remote_vault_id == local_vault_id:
+        return
+    raw_root = unresolved_workspace_path(workspace)
+    if remote_vault_id is None:
+        relative_path = str(payload.get("source_folder") or "")
+        if relative_path == root.name:
+            relative_path = "."
+        if not source_path_matches_workspace(row.get("source_folder"), root, relative_path, raw_root):
+            raise CliError("This historical Folder Share does not belong to this workspace folder.")
+        payload["expected_source_folder"] = row.get("source_folder")
+        payload["expected_vault_id"] = None
+        return
+    if remote_vault_id in legacy_workspace_ids(root, raw_root):
+        payload["expected_vault_id"] = remote_vault_id
+        payload["expected_source_folder"] = row.get("source_folder")
+        return
+    raise CliError("This Folder Share belongs to another workspace. Update it from that workspace instead.")
 
 
 def share_history_summary(client: Client, limit: int) -> dict[str, object]:
@@ -1034,20 +1143,24 @@ def publish_folder(client: Client, args: argparse.Namespace) -> dict[str, object
         "plugin_version": DOCFERRY_CLI_VERSION,
         "obsidian_version": "cli",
         "vault_name": root.name,
+        "platform": runtime_client_platform(),
     }
+    draft_payload: dict[str, object] = {
+        "folder_share_id": existing_id,
+        "vault_id": workspace_id(root),
+        "source_folder": source_folder,
+        "title": (args.title or folder.name or root.name).strip(),
+        "expected_document_count": len(documents),
+        "theme_mode": "reader",
+        "css_asset_id": None,
+        "client": client_info,
+    }
+    if existing_id:
+        add_expected_folder_vault_id_for_update(client, existing_id, draft_payload, args.workspace)
     draft = require_ok(
         client.post(
             "/v0/folder-shares/drafts",
-            body={
-                "folder_share_id": existing_id,
-                "vault_id": workspace_id(root),
-                "source_folder": source_folder,
-                "title": (args.title or folder.name or root.name).strip(),
-                "expected_document_count": len(documents),
-                "theme_mode": "reader",
-                "css_asset_id": None,
-                "client": client_info,
-            },
+            body=draft_payload,
             auth=True,
         ),
         "prepare folder revision",
@@ -1057,6 +1170,9 @@ def publish_folder(client: Client, args: argparse.Namespace) -> dict[str, object
         raise CliError("DocFerry did not return a folder revision id.")
     for index, path in enumerate(documents):
         markdown = path.read_text(encoding="utf-8")
+        prepared_assets = prepare_local_assets(markdown, root, path.parent, make_asset_uploader(client))
+        report_asset_warnings(prepared_assets.warnings)
+        markdown = prepared_assets.markdown
         relative = path.relative_to(folder).as_posix()
         route_key = hashlib.sha256(relative.casefold().encode()).hexdigest()[:20]
         require_ok(
@@ -1070,7 +1186,7 @@ def publish_folder(client: Client, args: argparse.Namespace) -> dict[str, object
                     "markdown": markdown,
                     "html_snapshot": None,
                     "css_asset_id": None,
-                    "assets": [],
+                    "assets": prepared_assets.assets,
                     "navigation_order": index,
                 },
                 auth=True,
@@ -1173,11 +1289,43 @@ def save_media_note_result(body: dict[str, object], output_arg: Path, *, overwri
     }
 
 
-def share_payload(args: argparse.Namespace, *, is_update: bool = False) -> dict[str, object]:
-    _root, file_path, relative_path = cli_workspace_markdown_path(args.workspace, args.file)
+def make_asset_uploader(client: Client) -> Callable[[bytes, str, str], str]:
+    def upload(data: bytes, filename: str, content_type: str) -> str:
+        body = require_ok(
+            client.post_bytes(
+                "/v0/assets",
+                data=data,
+                auth=True,
+                extra_headers={
+                    "Content-Type": content_type,
+                    "X-Share-Asset-Hash": f"sha256:{hashlib.sha256(data).hexdigest()}",
+                    "X-Share-Asset-Filename": filename,
+                },
+            ),
+            f"upload asset {filename}",
+        ).json()
+        asset_id = str(body.get("asset_id") or "")
+        if not asset_id:
+            raise CliError(f"DocFerry did not return an asset id for {filename}.")
+        return asset_id
+
+    return upload
+
+
+def report_asset_warnings(warnings: list[str]) -> None:
+    for warning in warnings:
+        print(f"warning: local reference {warning}", file=sys.stderr)
+
+
+def share_payload(client: Client, args: argparse.Namespace, *, is_update: bool = False) -> dict[str, object]:
+    root, file_path, relative_path = cli_workspace_markdown_path(args.workspace, args.file)
     markdown = file_path.read_text(encoding="utf-8")
+    prepared_assets = prepare_local_assets(markdown, root, file_path.parent, make_asset_uploader(client))
+    report_asset_warnings(prepared_assets.warnings)
+    markdown = prepared_assets.markdown
     title = args.title or title_from_markdown(markdown) or file_path.stem
     payload: dict[str, object] = {
+        "vault_id": workspace_id(root),
         "source_path": normalized_cli_source_path(args.source_path, fallback=relative_path),
         "source_hash": f"sha256:{hashlib.sha256(markdown.encode('utf-8')).hexdigest()}",
         "title": title,
@@ -1185,12 +1333,13 @@ def share_payload(args: argparse.Namespace, *, is_update: bool = False) -> dict[
         "html_snapshot": None,
         "theme_mode": "reader",
         "css_asset_id": None,
-        "assets": [],
+        "assets": prepared_assets.assets,
         "expires_at": args.expires_at,
         "client": {
             "plugin_id": "docferry-cli",
             "plugin_version": DOCFERRY_CLI_VERSION,
             "obsidian_version": "cli",
+            "platform": runtime_client_platform(),
         },
     }
     if args.password:
@@ -2240,10 +2389,6 @@ def cli_folder_documents(root: Path, value: str) -> tuple[Path, str, list[Path]]
     documents.sort(key=lambda path: path.relative_to(candidate).as_posix().casefold())
     source_folder = root.name if candidate == root else relative.as_posix()
     return candidate, source_folder, documents
-
-
-def workspace_id(root: Path) -> str:
-    return f"workspace_{hashlib.sha256(str(root).encode()).hexdigest()[:24]}"
 
 
 def save_link_note(url: str, output_arg: Path, *, overwrite: bool) -> dict[str, object]:
