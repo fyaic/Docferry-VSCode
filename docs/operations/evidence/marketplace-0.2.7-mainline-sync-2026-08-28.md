@@ -49,14 +49,27 @@ Obsidian theme capture remains inapplicable outside Obsidian.
 - Isolated VSIX install: passed; signed-out Activity Bar showed a visible
   **Connect Bondie account** system-browser action and no Folder Share creation
   action.
-- macOS arm64 VSIX: `14,665,895` bytes.
-- VSIX SHA-256:
+- Local macOS arm64 smoke-build VSIX: `14,665,895` bytes.
+- Local smoke-build VSIX SHA-256:
   `e9e9bed95aeceffd5fb7af675a1dcccc32e88fdb963f9830f2f0c3f6554b1913`.
 - Bundled helper: `docferry 0.4.6`; production HTTPS health passed.
 
 ## Distribution boundary
 
+Public PR `#15` merged to `main@4207023c17758dd154738de2af43c1051eb58b61`.
+The source/Extension Host gate and all four package jobs passed. GitHub Release
+[`v0.2.7`](https://github.com/fyaic/Docferry-VSCode/releases/tag/v0.2.7)
+contains these verified packages:
+
+| Target | Size | SHA-256 |
+| --- | ---: | --- |
+| darwin-arm64 | 15,747,272 | `6b9d47386b1f7082fc32916f83642672827d842761076c3b2327cf6323d56a61` |
+| darwin-x64 | 16,812,294 | `edf897496e326020a15a4307be54a11b5c5f5fe1a7f7d18318df9241cdd56a1f` |
+| linux-x64 | 8,690,789 | `68569e4992398b20a9b7860c33bb6120c206cf9e846ccdaf6f42f3e64e02458c` |
+| win32-x64 | 9,453,056 | `0016af76b87f8428e5d602ebebac32563d6082a69a3f6b94aeb86a0e099c55ce` |
+
+The manual Marketplace package gate passed against those exact release assets.
 The Visual Studio Marketplace still serves `bondie.docferry@0.2.4` at the time
-of this review. Version `0.2.7` must pass public repository CI, be built for all
-release targets, and be uploaded through the authenticated Bondie publisher
-page before it can be described as the Marketplace version.
+of this record. The four `0.2.7` VSIX files must be uploaded through the
+authenticated Bondie publisher page before `0.2.7` can be described as the
+Marketplace version.
