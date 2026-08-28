@@ -14,8 +14,11 @@ DocFerry works with ordinary folders and repositories; Obsidian is optional.
   saves ordinary public URLs, and creates detailed notes for supported sources
   when the connected account has Pro access.
 - **Share Markdown** from the editor or Explorer after a clear confirmation.
-- **Share a folder** as one navigable collection with Pro access. Hidden files
-  and paths outside the selected workspace stay excluded.
+  Supported workspace-local images, audio, video, and attachments referenced by
+  the note are included with it.
+- **Share a folder** as one navigable collection with Pro access. Supported
+  local files referenced by its notes are included; hidden, unsupported, and
+  outside-workspace files stay private.
 - **Manage shares** in the Activity Bar: open, copy, update, stop, and remove
   stopped history records.
 - **Open DocFerry Dashboard** with a short-lived product handoff. Account and
@@ -67,9 +70,10 @@ Imported notes are written to `DocFerry Imports` by default. Change
 ## Privacy and security
 
 DocFerry reads only content selected for an action. Publishing sends the chosen
-Markdown or visible folder documents to `docferry.bondie.io`; Advanced Import
-sends the confirmed public URL for hosted processing. The extension stores no
-Auth0, Stripe, SynapseHub operator, or AI-provider credential.
+Markdown or visible folder documents and supported referenced local files to
+`docferry.bondie.io`; Advanced Import sends the confirmed public URL for hosted
+processing. The extension stores no Auth0, Stripe, SynapseHub operator, or
+AI-provider credential.
 
 Workspaces must be trusted and backed by a local filesystem. Commands use
 argument arrays with `shell: false`, paths are contained to the chosen workspace,

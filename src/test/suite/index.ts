@@ -29,7 +29,7 @@ export async function run(): Promise<void> {
   assert.ok(extension, "DocFerry extension was not discovered by Extension Host");
   await extension.activate();
   assert.equal(extension.isActive, true);
-  assert.equal(extension.packageJSON.version, "0.2.6");
+  assert.equal(extension.packageJSON.version, "0.2.7");
   assert.ok(
     extension.packageJSON.activationEvents.includes("onStartupFinished"),
     "DocFerry must expose account state without requiring users to find its view first"
@@ -41,6 +41,21 @@ export async function run(): Promise<void> {
         && entry.contents?.includes("command:docferry.signIn")
     ),
     "Signed-out users must get a native sign-in entry in the DocFerry view"
+  );
+  assert.equal(
+    extension.packageJSON.contributes.commands.find(
+      (entry: { command?: string }) => entry.command === "docferry.shareFolder"
+    )?.enablement,
+    "docferry.folderShareEnabled && isWorkspaceTrusted",
+    "Folder Share creation must follow the server capability context"
+  );
+  assert.ok(
+    extension.packageJSON.contributes.menus["explorer/context"].some(
+      (entry: { command?: string; when?: string }) =>
+        entry.command === "docferry.shareFolder"
+        && entry.when?.includes("docferry.folderShareEnabled")
+    ),
+    "Explorer Folder Share must follow the server capability context"
   );
   assert.equal(extension.packageJSON.pricing, "Free");
   assert.equal(extension.packageJSON.preview, true);

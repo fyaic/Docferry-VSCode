@@ -8,6 +8,7 @@ import {
   advancedImportDecision,
   accountContextPath,
   AuthStatusSummary,
+  canCreateFolderShare,
   classifyOperationError,
   dashboardCommandArgs,
   DashboardLinkResult,
@@ -76,8 +77,16 @@ export function activate(context: vscode.ExtensionContext): void {
     accountState = state;
     tree.setAccountState(state);
     void vscode.commands.executeCommand("setContext", "docferry.accountState", state);
+    if (state !== "signedIn") {
+      setFolderShareEnabled(false);
+    }
     updateStatus();
   };
+  const setFolderShareEnabled = (enabled: boolean) => {
+    tree.setFolderShareEnabled(enabled);
+    void vscode.commands.executeCommand("setContext", "docferry.folderShareEnabled", enabled);
+  };
+  setFolderShareEnabled(false);
   updateStatus();
   status.show();
 
@@ -94,7 +103,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand(
       "docferry.refresh",
-      () => refreshAccountState(cli, setAccountState)
+      () => refreshAccountState(cli, setAccountState, setFolderShareEnabled)
     ),
     vscode.commands.registerCommand(
       "docferry.openDashboard",
@@ -103,13 +112,16 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("docferry.openUrl", (url: string) => openExternal(url)),
     vscode.commands.registerCommand(
       "docferry.signIn",
-      () => signIn(cli, tree, setAccountState, detailedNotes)
+      () => signIn(cli, tree, setAccountState, setFolderShareEnabled, detailedNotes)
     ),
     vscode.commands.registerCommand(
       "docferry.signOut",
       () => signOut(cli, tree, detailedNotes, setAccountState)
     ),
-    vscode.commands.registerCommand("docferry.showMembership", () => showMembership(cli)),
+    vscode.commands.registerCommand(
+      "docferry.showMembership",
+      () => showMembership(cli, setFolderShareEnabled)
+    ),
     vscode.commands.registerCommand("docferry.shareCurrentFile", (uri?: vscode.Uri) => shareMarkdown(cli, tree, uri)),
     vscode.commands.registerCommand("docferry.shareFolder", (uri?: vscode.Uri) => shareFolder(cli, tree, uri)),
     vscode.commands.registerCommand("docferry.saveLink", () => saveLink(cli, tree, detailedNotes)),
@@ -136,7 +148,7 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
   void detailedNotes.resume();
-  void refreshAccountState(cli, setAccountState);
+  void refreshAccountState(cli, setAccountState, setFolderShareEnabled);
 }
 
 export function deactivate(): void {}
@@ -145,6 +157,7 @@ async function signIn(
   cli: DocFerryCli,
   tree: DocFerryTreeProvider,
   setAccountState: (state: AccountState) => void,
+  setFolderShareEnabled: (enabled: boolean) => void,
   detailedNotes?: DetailedNoteManager
 ): Promise<void> {
   if (detailedNotes && !(await detailedNotes.guardAccountChange())) {
@@ -198,7 +211,7 @@ async function signIn(
   if (!result) {
     return;
   }
-  setAccountState("signedIn");
+  await refreshAccountState(cli, setAccountState, setFolderShareEnabled);
   tree.refresh();
   const action = await vscode.window.showInformationMessage(
     "DocFerry is connected to your Bondie account.",
@@ -259,7 +272,10 @@ async function signOut(
   void vscode.window.showInformationMessage("Signed out of DocFerry.");
 }
 
-async function showMembership(cli: DocFerryCli): Promise<void> {
+async function showMembership(
+  cli: DocFerryCli,
+  setFolderShareEnabled: (enabled: boolean) => void
+): Promise<void> {
   const workspacePath = currentAccountContextPath();
   const membership = await runWithProgress(
     "Checking DocFerry plan and usage",
@@ -272,6 +288,7 @@ async function showMembership(cli: DocFerryCli): Promise<void> {
   if (!membership) {
     return;
   }
+  setFolderShareEnabled(canCreateFolderShare(membership));
   const action = await vscode.window.showInformationMessage(membershipLabel(membership), "Open dashboard");
   if (action === "Open dashboard") {
     await openDashboard(cli, "membership");
@@ -296,7 +313,10 @@ async function shareMarkdown(
   const relative = workspaceRelativePath(workspace.uri.fsPath, uri.fsPath);
   const approved = await vscode.window.showWarningMessage(
     `Create a DocFerry link for “${path.basename(uri.fsPath)}”?`,
-    { modal: true },
+    {
+      modal: true,
+      detail: "Supported local images, audio, video, and attachments referenced by this note will be included. Hidden, unsupported, and outside-workspace files stay private."
+    },
     "Share"
   );
   if (approved !== "Share") {
@@ -307,6 +327,7 @@ async function shareMarkdown(
     (token) => cli.runJson<SaveResult>(workspace.uri.fsPath, ["share", relative, "--confirm"], {
       label: "Share Markdown",
       token,
+      notifyAssetWarnings: true,
       timeoutSeconds: 120
     })
   );
@@ -359,6 +380,7 @@ async function shareFolder(
     (token) => cli.runJson<SaveResult>(workspace.uri.fsPath, ["share", relative, "--confirm"], {
       label: "Share folder",
       token,
+      notifyAssetWarnings: true,
       timeoutSeconds: 300
     })
   );
@@ -601,6 +623,7 @@ async function updateShare(
     (token) => cli.runJson<SaveResult>(workspacePath, ["update", node.shareId, sourcePath, "--password-mode", "keep"], {
       label: "Update note share",
       token,
+      notifyAssetWarnings: true,
       timeoutSeconds: 120
     })
   );
@@ -648,6 +671,7 @@ async function updateFolderShare(
     ], {
       label: "Update folder share",
       token,
+      notifyAssetWarnings: true,
       timeoutSeconds: 300
     })
   );
@@ -756,7 +780,8 @@ function currentAccountContextPath(): string {
 
 async function refreshAccountState(
   cli: DocFerryCli,
-  setAccountState: (state: AccountState) => void
+  setAccountState: (state: AccountState) => void,
+  setFolderShareEnabled: (enabled: boolean) => void
 ): Promise<void> {
   setAccountState("checking");
   try {
@@ -764,7 +789,21 @@ async function refreshAccountState(
       label: "Check account",
       timeoutSeconds: 30
     });
-    setAccountState(status.authenticated ? "signedIn" : "signedOut");
+    if (!status.authenticated) {
+      setAccountState("signedOut");
+      return;
+    }
+    setAccountState("signedIn");
+    try {
+      const membership = await cli.runJson<MembershipSummary>(
+        currentAccountContextPath(),
+        ["membership"],
+        { label: "Refresh feature access", timeoutSeconds: 60 }
+      );
+      setFolderShareEnabled(canCreateFolderShare(membership));
+    } catch {
+      setFolderShareEnabled(false);
+    }
   } catch (error) {
     setAccountState(isAuthenticationError(error) ? "signedOut" : "error");
   }

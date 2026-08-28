@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const MIN_AGENT_KIT_VERSION = "0.4.4";
+export const MIN_AGENT_KIT_VERSION = "0.4.6";
 export const VS_CODE_LOGIN_START_ARGS = [
   "login",
   "--device-code-start",
@@ -70,12 +70,12 @@ export function folderShareConfirmation(
   if (relativePath === ".") {
     return {
       message: `Share the entire “${workspaceName}” workspace?`,
-      detail: "This publishes every visible Markdown file in the workspace and its subfolders. Hidden and non-Markdown files stay private."
+      detail: "This publishes visible Markdown plus supported local images, audio, video, and attachments referenced by those notes. Hidden, unsupported, and outside-workspace files stay private."
     };
   }
   return {
     message: `Share Markdown files in “${path.basename(relativePath)}”?`,
-    detail: `Selected folder: ${relativePath}. Visible Markdown files in this folder and its subfolders will be published.`
+    detail: `Selected folder: ${relativePath}. Visible Markdown and supported referenced local files in this folder and its subfolders will be published.`
   };
 }
 
@@ -268,20 +268,50 @@ export function isTrustedDeviceLoginUrl(value: string | undefined): value is str
   }
   try {
     const url = new URL(value);
-    const keys = [...url.searchParams.keys()];
+    const keys = [...url.searchParams.keys()].sort();
+    if (
+      keys.length !== 3
+      || keys[0] !== "instance_type"
+      || keys[1] !== "prompt"
+      || keys[2] !== "return_path"
+      || url.searchParams.get("instance_type") !== "web_dashboard"
+      || url.searchParams.get("prompt") !== "select_account"
+    ) {
+      return false;
+    }
+    const returnPath = url.searchParams.get("return_path");
+    if (!returnPath?.startsWith("/")) {
+      return false;
+    }
+    const activation = new URL(returnPath, url.origin);
+    const activationKeys = [...activation.searchParams.keys()];
     return url.protocol === "https:"
       && url.hostname === "docferry.bondie.io"
       && url.port === ""
       && url.username === ""
       && url.password === ""
-      && url.pathname === "/activate"
+      && url.pathname === "/v0/auth/login"
       && url.hash === ""
-      && keys.length === 1
-      && keys[0] === "user_code"
-      && /^[A-Z0-9-]{4,32}$/i.test(url.searchParams.get("user_code") || "");
+      && activation.origin === url.origin
+      && activation.pathname === "/activate"
+      && activation.hash === ""
+      && activationKeys.length === 1
+      && activationKeys[0] === "user_code"
+      && /^[A-Z0-9-]{4,32}$/i.test(activation.searchParams.get("user_code") || "");
   } catch {
     return false;
   }
+}
+
+export function canCreateFolderShare(membership: MembershipSummary): boolean {
+  return membership.feature_gates?.["docferry.publish.folder"] === true;
+}
+
+export function localAssetWarningCount(stderr: string): number {
+  return stderr
+    .split(/\r?\n/)
+    .filter((line) => /^warning: local reference\b/i.test(line.trim()))
+    .length;
 }
 
 export function parseJsonOutput<T>(stdout: string): T {

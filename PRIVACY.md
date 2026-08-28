@@ -1,6 +1,6 @@
 # Privacy
 
-Last updated: August 12, 2026.
+Last updated: August 28, 2026.
 
 DocFerry for VS Code connects to the hosted DocFerry service at
 `docferry.bondie.io`. The extension does not contain advertising SDKs or sell
@@ -12,10 +12,12 @@ personal information.
   the extension version, operating-system description, and a random local
   instance identifier. Authentication completes in the system browser.
 - **Share Markdown:** the selected Markdown, title, workspace-relative source
-  path, content hash, and publication settings are sent only after confirmation.
+  path, content hash, publication settings, and supported referenced local
+  images, audio, video, or attachments are sent only after confirmation.
 - **Share a folder:** visible Markdown in the selected folder, relative paths,
-  titles, hashes, and publication settings are sent only after confirmation.
-  Hidden files and paths outside the workspace are excluded.
+  titles, hashes, publication settings, and supported referenced local files are
+  sent only after confirmation. Hidden files, unsupported files, and paths
+  outside the workspace are excluded.
 - **Import a DocFerry share:** the selected share URL and optional password are
   sent to retrieve the document and assets.
 - **Detailed note:** the confirmed public source URL is sent to DocFerry's
@@ -38,9 +40,11 @@ the extension can resume after reload. It does not store the source URL or
 generated Markdown there, and clears the record after save, cancellation, or a
 terminal failure.
 
-The DocFerry output channel records operation names and redacted error details.
-It does not intentionally log session tokens, imported content, shared Markdown,
-share URLs, titles, or workspace paths.
+The DocFerry output channel records operation names, redacted error details, and
+local warnings when referenced files cannot be published. A warning may contain
+a redacted local file name or path for troubleshooting, but never the file
+content. The channel does not intentionally log session tokens, imported
+content, shared Markdown, share URLs, or titles, and remains on the device.
 
 ## Controls
 

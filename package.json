@@ -2,7 +2,7 @@
   "name": "docferry",
   "displayName": "DocFerry",
   "description": "Save links, create detailed notes, and share Markdown files or folders from VS Code.",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "publisher": "bondie",
   "author": {
     "name": "Bondie",
@@ -90,7 +90,8 @@
       {
         "command": "docferry.shareFolder",
         "title": "DocFerry: Share Folder",
-        "icon": "$(folder-opened)"
+        "icon": "$(folder-opened)",
+        "enablement": "docferry.folderShareEnabled && isWorkspaceTrusted"
       },
       {
         "command": "docferry.showMembership",
@@ -230,7 +231,7 @@
         },
         {
           "command": "docferry.shareFolder",
-          "when": "explorerResourceIsFolder && isWorkspaceTrusted",
+          "when": "explorerResourceIsFolder && isWorkspaceTrusted && docferry.folderShareEnabled",
           "group": "docferry@2"
         }
       ],

@@ -18,6 +18,9 @@ way to follow up. Do not include active credentials or private user content.
 - The bundled helper is version-checked before use and starts with `shell: false`.
 - Workspace paths are canonicalized, bounded to an open workspace, and checked
   against symbolic-link escapes.
+- Referenced local files are resolved only inside the selected workspace;
+  hidden and unsupported files are excluded, and references inside code or
+  comments are not treated as publishable assets.
 - Authentication uses a short-lived Device Code approval in the system browser.
 - Publishing, stopping links, and deleting stopped history require explicit
   confirmation. The server independently enforces ownership and state.

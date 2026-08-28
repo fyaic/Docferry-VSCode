@@ -8,6 +8,7 @@ import {
   buildCliArgs,
   defaultCliCandidates,
   isSupportedAgentKitVersion,
+  localAssetWarningCount,
   MIN_AGENT_KIT_VERSION,
   parseJsonOutput,
   redactOutput
@@ -29,6 +30,7 @@ export interface CliRunOptions {
   token?: vscode.CancellationToken;
   timeoutSeconds?: number;
   onStdout?: (chunk: string) => void;
+  notifyAssetWarnings?: boolean;
 }
 
 export interface CliRunResult {
@@ -151,6 +153,22 @@ export class DocFerryCli {
           return;
         }
         if (code === 0) {
+          const safeStderr = redactOutput(stderr.trim()).slice(0, 8_000);
+          if (safeStderr) {
+            this.output.appendLine(safeStderr);
+          }
+          const assetWarningCount = localAssetWarningCount(stderr);
+          if (options.notifyAssetWarnings && assetWarningCount > 0) {
+            const noun = assetWarningCount === 1 ? "file" : "files";
+            void vscode.window.showWarningMessage(
+              `DocFerry published the share without ${assetWarningCount} referenced local ${noun}.`,
+              "Show details"
+            ).then((action) => {
+              if (action === "Show details") {
+                this.output.show(true);
+              }
+            });
+          }
           this.output.appendLine("Completed.");
           finish(undefined, { stdout, stderr });
           return;
